@@ -78,6 +78,7 @@ const EXTENDED_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16'
 const GPT1_RATIOS = ['1:1', '2:3', '3:2'];
 const GPT15_RATIOS = ['1:1', '2:3', '3:2', '9:16', '16:9'];
 const GROK_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+const KLING_O1_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'];
 
 const MODELS: ModelDefinition[] = [
   { 
@@ -97,6 +98,15 @@ const MODELS: ModelDefinition[] = [
     maxImages: 8,
     supportedAspectRatios: EXTENDED_RATIOS,
     supportedResolutions: ['1K', '2K', '4K']
+  },
+  {
+    id: 'kling-image-o1',
+    name: 'Kling Image O1',
+    cost: 'Kling',
+    features: ['omni', 'high-quality'],
+    maxImages: 4,
+    supportedAspectRatios: KLING_O1_RATIOS,
+    supportedResolutions: ['1K', '2K']
   },
   {
     id: 'gpt-image-1-all',
@@ -178,7 +188,7 @@ const VIDEO_MODELS = [
   {
     id: 'grok-video-3',
     name: 'Grok Video 3',
-    desc: '标清视频',
+    desc: '标清视频', 
     supportedAspectRatios: ['2:3', '3:2', '1:1'],
     options: [
       {s: '6', q: '标清'}
@@ -415,8 +425,13 @@ const App = () => {
     getAllAssetsFromDB().then(assets => {
         const sorted = assets.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         setGeneratedAssets(sorted);
+        // Restart video polling
         sorted.filter(a => a.type === 'video' && (a.status === 'queued' || a.status === 'processing'))
               .forEach(v => startVideoPolling(v.taskId!, v.id, v.timestamp, v.modelId));
+        
+        // Restart Kling Image polling
+        sorted.filter(a => a.type === 'image' && a.modelId === 'kling-image-o1' && (a.status === 'queued' || a.status === 'processing'))
+              .forEach(v => startKlingImagePolling(v.taskId!, v.id, v.timestamp));
     });
   }, []);
 
@@ -444,6 +459,48 @@ const App = () => {
     localStorage.setItem('viva_config', JSON.stringify(normalized));
     setActiveModal(null);
     setError(null);
+  };
+
+  const startKlingImagePolling = (taskId: string, assetId: string, startTime: number) => {
+    const interval = setInterval(async () => {
+        let key = configRef.current.apiKey || safeEnvKey;
+        if (!key || !taskId) { clearInterval(interval); return; }
+        try {
+            const url = `${configRef.current.baseUrl}/kling/v1/images/omni-image/${taskId}`;
+            const res = await fetch(url, { headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' } });
+            const data = await res.json();
+            
+            const taskStatus = data.data?.task_status || '';
+            
+            if (taskStatus === 'succeed') {
+                 const images = data.data?.task_result?.images;
+                 const imageUrl = images && images.length > 0 ? images[0].url : null;
+                 
+                 if (imageUrl) {
+                    const finishTime = Date.now();
+                    const diff = Math.round((finishTime - startTime) / 1000);
+                    const assetUpdates = { status: 'completed' as const, url: imageUrl, genTimeLabel: `${diff}s` };
+                    
+                    setGeneratedAssets(prev => prev.map(a => a.id === assetId ? { ...a, ...assetUpdates } : a));
+                    
+                    const assets = await getAllAssetsFromDB();
+                    const existing = assets.find(a => a.id === assetId);
+                    if (existing) {
+                        saveAssetToDB({ ...existing, ...assetUpdates });
+                    }
+                 } else {
+                     setGeneratedAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: 'failed', genTimeLabel: '无图' } : a));
+                 }
+                 clearInterval(interval);
+            } else if (taskStatus === 'failed') {
+                 const errorMsg = data.data?.task_status_msg || '失败';
+                 setGeneratedAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: 'failed', genTimeLabel: errorMsg } : a));
+                 clearInterval(interval);
+            }
+        } catch (e) {
+            console.error("Polling error for kling task", taskId, e);
+        }
+    }, 3000);
   };
 
   const startVideoPolling = (taskId: string, assetId: string, startTime: number, modelId: string) => {
@@ -648,7 +705,6 @@ const App = () => {
     const tPrompt = overrideConfig?.prompt ?? prompt;
     if (!tPrompt) { setError("请输入提示词"); return; }
     let key = config.apiKey || safeEnvKey;
-    // Removed explicit key check to prevent alerts
 
     const tModelId = overrideConfig?.modelId ?? selectedModel;
     const tRatio = overrideConfig?.aspectRatio ?? aspectRatio;
@@ -668,8 +724,50 @@ const App = () => {
         });
     }
     setGeneratedAssets(prev => [...placeholders, ...prev]);
-
     setError(null);
+
+    // Specific handling for Kling Omni Image (Async)
+    if (tModelId === 'kling-image-o1') {
+        const createOneKling = async (pId: string) => {
+            try {
+                 const payload = {
+                    model_name: "kling-image-o1",
+                    prompt: tPrompt,
+                    n: 1, 
+                    aspect_ratio: tRatio,
+                    resolution: tSize.toLowerCase(),
+                    image_list: tRefs.map((img: ReferenceImage) => ({
+                        image: img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`
+                    }))
+                 };
+
+                 const res = await fetch(`${config.baseUrl}/kling/v1/images/omni-image`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify(payload)
+                 });
+                 const data = await res.json();
+                 
+                 if (data.code !== 0) throw new Error(data.message || "Kling API Error");
+                 
+                 const tid = data.data?.task_id;
+                 if (!tid) throw new Error("No Task ID returned");
+
+                 const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
+                 setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
+                 saveAssetToDB(updatedAsset);
+                 startKlingImagePolling(tid, pId, startTime);
+
+            } catch (e: any) {
+                 setGeneratedAssets(prev => prev.map(a => a.id === pId ? { ...a, status: 'failed', genTimeLabel: '请求失败' } : a));
+                 setError(e.message);
+            }
+        }
+        placeholders.forEach(p => createOneKling(p.id));
+        return;
+    }
+
+    // Default synchronous generation
     try {
       const generateOne = async (pId: string) => {
         const start = Date.now();
@@ -1070,7 +1168,7 @@ const App = () => {
                 </button>
 
                 <div className="aspect-square bg-slate-100 border-b-4 border-black relative overflow-hidden">
-                  {asset.status === 'loading' ? (
+                  {(asset.status === 'loading' || asset.status === 'queued' || asset.status === 'processing') ? (
                      <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-slate-50 animate-pulse">
                         <Loader2 className="w-12 h-12 mb-4 animate-spin text-brand-black" />
                         <span className="font-normal text-xs uppercase tracking-tighter italic">Rendering...</span>
@@ -1181,6 +1279,16 @@ const App = () => {
                     </h3>
                     <p className="text-sm font-bold text-slate-700 leading-relaxed italic">
                         2、新增视频生成模型 <span className="text-black bg-brand-yellow px-1 border border-black">grok-video-3</span>，优点：生成速度快。
+                    </p>
+                 </div>
+
+                 <div className="bg-[#f0fdf4] border-2 border-black p-4 brutalist-shadow-sm transition-transform hover:-translate-y-1">
+                    <h3 className="font-bold text-lg mb-2 italic uppercase flex items-center gap-2">
+                        <span className="bg-brand-green text-black px-2 py-0.5 text-xs border border-black">NEW IMAGE</span>
+                        图片模型上新
+                    </h3>
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed italic">
+                        3、新增最新图片创作模型 <span className="text-black bg-brand-yellow px-1 border border-black">kling image o1</span>，支持1K，2K。
                     </p>
                  </div>
               </div>
@@ -1294,6 +1402,7 @@ const App = () => {
                   items: [
                     { m: 'Nano Banana', p: '0.06元/张' },
                     { m: 'Nano Banana Pro', p: '0.22元-0.40元/张' },
+                    { m: 'Kling Image O1', p: '0.24元/张' },
                     { m: 'gpt-image-1', p: '0.06元/张' },
                     { m: 'gpt-image-1.5', p: '0.06元/张' },
                     { m: 'Grok 4 Image', p: '0.06元/张' },
