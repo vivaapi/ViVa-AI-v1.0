@@ -1261,6 +1261,14 @@ const App = () => {
           <div className="w-[550px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
             <ModalHeader title="最新公告 / ANNOUNCEMENT" icon={Megaphone} onClose={() => setActiveModal(null)} />
             <div className="p-8 space-y-6">
+              
+              <div className="bg-brand-red text-white p-4 border-2 border-black brutalist-shadow-sm flex items-center justify-center gap-2 animate-pulse">
+                <AlertCircle className="w-6 h-6 flex-shrink-0" />
+                <span className="font-bold text-lg italic uppercase tracking-wider text-center">
+                  首次使用前，请设置API令牌
+                </span>
+              </div>
+
               <div className="space-y-4">
                  <div className="bg-[#eff6ff] border-2 border-black p-4 brutalist-shadow-sm transition-transform hover:-translate-y-1">
                     <h3 className="font-bold text-lg mb-2 italic uppercase flex items-center gap-2">
