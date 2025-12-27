@@ -7,7 +7,7 @@ import {
   RefreshCw, Edit, Maximize2, Headset, Check,
   Square, CheckSquare, Link as LinkIcon, Megaphone, ExternalLink, Lock,
   History, Copy, ClipboardCheck, Trash2,
-  AlertTriangle
+  AlertTriangle, AlignLeft
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -19,7 +19,7 @@ declare var process: {
   }
 };
 
-type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'announcement' | null;
+type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'announcement' | 'edit-prompt' | null;
 
 interface AppConfig {
   baseUrl: string;
@@ -420,6 +420,12 @@ const App = () => {
       }
     }
   }, [referenceImages, selectedModel, selectedVideoModel, mainCategory, error]);
+
+  useEffect(() => {
+    if (activeModal === 'edit-prompt') {
+      setPrompt(prev => prev.replace(/([。])(?!\s*\n)/g, '$1\n\n').replace(/(\. )/g, '.\n\n'));
+    }
+  }, [activeModal]);
 
   useEffect(() => {
     getAllAssetsFromDB().then(assets => {
@@ -1086,11 +1092,16 @@ const App = () => {
               <div className="space-y-1">
                 <div className="flex justify-between items-end mb-0.5">
                   <label className={labelClass}>提示词描述 PROMPT</label>
-                  <button onClick={optimizePrompt} disabled={isOptimizing} className="px-1.5 py-0.5 bg-brand-yellow border-2 border-black font-normal text-[11px] brutalist-shadow-sm hover:translate-y-1 hover:shadow-none transition-all uppercase">
-                    {isOptimizing ? <Loader2 className="w-3 animate-spin"/> : 'AI优化'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setActiveModal('edit-prompt')} className="px-1.5 py-0.5 bg-white border-2 border-black font-normal text-[11px] brutalist-shadow-sm hover:translate-y-1 hover:shadow-none transition-all uppercase flex items-center gap-1">
+                        <Maximize2 className="w-3 h-3"/> 展开
+                    </button>
+                    <button onClick={optimizePrompt} disabled={isOptimizing} className="px-1.5 py-0.5 bg-brand-yellow border-2 border-black font-normal text-[11px] brutalist-shadow-sm hover:translate-y-1 hover:shadow-none transition-all uppercase">
+                        {isOptimizing ? <Loader2 className="w-3 animate-spin"/> : 'AI优化'}
+                    </button>
+                  </div>
                 </div>
-                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="描述您的创作奇想..." className="w-full h-20 p-2 border-2 border-black font-normal text-xs bg-white focus:outline-none brutalist-input no-scrollbar resize-none" />
+                <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="描述您的创作奇想..." className="w-full h-48 p-2 border-2 border-black font-normal text-[12px] bg-white focus:outline-none brutalist-input resize-y" />
               </div>
             </div>
           </section>
@@ -1459,6 +1470,38 @@ const App = () => {
               <p className="font-bold text-xl tracking-tight uppercase italic">加微信领试用额度，招代理</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeModal === 'edit-prompt' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-4xl h-[80vh] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative flex flex-col">
+            <ModalHeader title="提示词编辑 / PROMPT EDITOR" icon={Edit} onClose={() => setActiveModal(null)} />
+            <div className="flex-1 p-6 flex flex-col gap-4 min-h-0">
+                <textarea 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)} 
+                    placeholder="在此输入详细的提示词..." 
+                    className="flex-1 w-full p-4 border-2 border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed" 
+                />
+                <div className="flex justify-between items-center pt-2">
+                    <div className="text-xs text-slate-500 font-bold uppercase italic">
+                        {prompt.length} CHARS
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setPrompt('')} className="px-4 py-2 bg-white border-2 border-black font-bold uppercase hover:bg-slate-100 transition-colors brutalist-shadow-sm text-xs">
+                            清空 / Clear
+                        </button>
+                        <button onClick={() => { navigator.clipboard.writeText(prompt); }} className="px-4 py-2 bg-white border-2 border-black font-bold uppercase hover:bg-brand-yellow transition-colors brutalist-shadow-sm text-xs">
+                            复制 / Copy
+                        </button>
+                        <button onClick={() => setActiveModal(null)} className="px-6 py-2 bg-brand-red text-white border-2 border-black font-bold uppercase hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all text-xs">
+                            完成 / Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </div>
         </div>
       )}
 
