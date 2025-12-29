@@ -1602,8 +1602,8 @@ const App = () => {
                     { m: 'Grok Video 3', p: '0.14元/条' },
                   ]
                 }
-              ].map((cat, cidx) => (
-                <div key={cat} className="border-b-4 border-black last:border-b-0">
+              ].map((cat) => (
+                <div key={cat.category} className="border-b-4 border-black last:border-b-0">
                   <div className="bg-slate-700 text-white px-6 py-1 text-base font-bold uppercase tracking-wider flex items-center gap-2 italic">
                     <Sparkles className="w-3 h-3" /> {cat.category}
                   </div>
