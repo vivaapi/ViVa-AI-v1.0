@@ -1238,19 +1238,19 @@ const App = () => {
                 
                 {/* Updated Toolbar matching the provided image style */}
                 <div className="flex gap-1.5 mb-2 bg-[#FFFDE7] p-1 border-2 border-black brutalist-shadow-sm">
-                  <button onClick={() => setActiveModal('library')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#A855F7] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase">
+                  <button onClick={() => setActiveModal('library')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#A855F7] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                     <Bookmark className="w-3.5 h-3.5"/> 库
                   </button>
-                  <button onClick={savePromptToLibrary} disabled={!prompt.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F472B6] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
+                  <button onClick={savePromptToLibrary} disabled={!prompt.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F472B6] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
                     <Save className="w-3.5 h-3.5"/> 保存
                   </button>
-                  <button onClick={() => setActiveModal('styles')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3B82F6] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase">
+                  <button onClick={() => setActiveModal('styles')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3B82F6] text-white border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                     <Palette className="w-3.5 h-3.5"/> 风格
                   </button>
-                  <button onClick={() => setActiveModal('edit-prompt')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4ADE80] text-black border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase">
+                  <button onClick={() => setActiveModal('edit-prompt')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4ADE80] text-black border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                     <Maximize2 className="w-3.5 h-3.5"/> 展开
                   </button>
-                  <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#F7CE00] text-black border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase">
+                  <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#F7CE00] text-black border-2 border-black font-bold text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                     {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <><Wand2 className="w-3.5 h-3.5"/> AI优化</>}
                   </button>
                 </div>
