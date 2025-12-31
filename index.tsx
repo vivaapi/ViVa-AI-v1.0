@@ -158,7 +158,7 @@ const MODELS: ModelDefinition[] = [
 
 const VIDEO_MODELS = [
   { 
-    id: 'sora-2', 
+    id: 'sora-2-all', 
     name: 'Sora 2', 
     desc: '标清视频', 
     supportedAspectRatios: ['9:16', '16:9'],
@@ -168,7 +168,7 @@ const VIDEO_MODELS = [
     ] 
   },
   { 
-    id: 'sora-2-pro', 
+    id: 'sora-2-pro-all', 
     name: 'Sora 2 Pro', 
     desc: '高清/长效', 
     supportedAspectRatios: ['9:16', '16:9'],
