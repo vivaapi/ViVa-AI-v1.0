@@ -9,7 +9,7 @@ import {
   History, Copy, ClipboardCheck, Trash2,
   AlertTriangle, Palette, Bookmark, Wand2, GripVertical, Save,
   Image as ImageIcon, Film, Folder, Tag, LayoutGrid, ChevronDown,
-  BookOpen, Headset
+  BookOpen, Headset, Shield
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -21,7 +21,7 @@ declare var process: {
   }
 };
 
-type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'announcement' | 'edit-prompt' | 'styles' | 'library' | 'save-prompt-confirm' | null;
+type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'announcement' | 'edit-prompt' | 'styles' | 'library' | 'save-prompt-confirm' | 'video-remix' | 'agent-login' | null;
 
 interface AppConfig {
   baseUrl: string;
@@ -69,6 +69,7 @@ interface SavedPrompt {
 // --- Constants ---
 
 const FIXED_BASE_URL = 'https://www.vivaapi.cn';
+const AGENT_USERS = ['b20610284@126.com', 'github_156012', 'viva-api'];
 
 const ASPECT_RATIO_LABELS: Record<string, string> = {
   '1:1': '1:1 (正方形)',
@@ -405,7 +406,7 @@ const ModalHeader = ({ title, icon: Icon, onClose, bgColor = "bg-brand-yellow" }
 );
 
 const App = () => {
-  const [mainCategory, setMainCategory] = useState<'image' | 'video'>('image');
+  const [mainCategory, setMainCategory] = useState<'image' | 'video' | 'agent'>('image');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [selectedVideoModel, setSelectedVideoModel] = useState(VIDEO_MODELS[0].id);
   const [videoOptionIdx, setVideoOptionIdx] = useState(0);
@@ -433,6 +434,10 @@ const App = () => {
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   
+  // Agent State
+  const [agentUser, setAgentUser] = useState<string | null>(null);
+  const [loginUser, setLoginUser] = useState('');
+
   // Library State
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
   const [editingLibraryText, setEditingLibraryText] = useState('');
@@ -452,6 +457,10 @@ const App = () => {
   const [saveName, setSaveName] = useState('');
   const [saveCategory, setSaveCategory] = useState('');
   const [showSaveCategoryDropdown, setShowSaveCategoryDropdown] = useState(false);
+  
+  // Video Remix State
+  const [remixingAsset, setRemixingAsset] = useState<GeneratedAsset | null>(null);
+  const [remixPrompt, setRemixPrompt] = useState('');
 
   const galleryRef = useRef<HTMLDivElement>(null);
   const configRef = useRef(config);
@@ -459,12 +468,14 @@ const App = () => {
   // Safe process.env access
   const safeEnvKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) ? process.env.API_KEY : '';
 
+  const isVideoMode = mainCategory === 'video' || mainCategory === 'agent';
+
   useEffect(() => {
     configRef.current = config;
   }, [config]);
 
   useEffect(() => {
-    if (mainCategory === 'image') {
+    if (!isVideoMode) {
       const model = MODELS.find(m => m.id === selectedModel);
       if (model) {
         if (!model.supportedAspectRatios.includes(aspectRatio)) setAspectRatio(model.supportedAspectRatios[0]);
@@ -483,17 +494,17 @@ const App = () => {
         setReferenceImages(prev => prev.slice(0, max));
       }
     }
-  }, [selectedModel, selectedVideoModel, mainCategory, aspectRatio, imageSize, videoRatio]);
+  }, [selectedModel, selectedVideoModel, mainCategory, aspectRatio, imageSize, videoRatio, isVideoMode]);
 
   useEffect(() => {
     if (error && error.includes('张参考图')) {
       const currentModel = MODELS.find(m => m.id === selectedModel);
-      const max = (mainCategory === 'image') ? (currentModel?.maxImages || 4) : ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1);
+      const max = (!isVideoMode) ? (currentModel?.maxImages || 4) : ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1);
       if (referenceImages.length <= max) {
         setError(null);
       }
     }
-  }, [referenceImages, selectedModel, selectedVideoModel, mainCategory, error]);
+  }, [referenceImages, selectedModel, selectedVideoModel, mainCategory, error, isVideoMode]);
 
   useEffect(() => {
     if (activeModal === 'edit-prompt') {
@@ -569,6 +580,25 @@ const App = () => {
     localStorage.setItem('viva_config', JSON.stringify(normalized));
     setActiveModal(null);
     setError(null);
+  };
+  
+  const handleAgentClick = () => {
+    if (agentUser) {
+        setMainCategory('agent');
+    } else {
+        setLoginUser('');
+        setActiveModal('agent-login');
+    }
+  };
+
+  const handleAgentLogin = () => {
+    if (AGENT_USERS.includes(loginUser.trim())) {
+        setAgentUser(loginUser.trim());
+        setMainCategory('agent');
+        setActiveModal(null);
+    } else {
+        alert("无权访问 / Access Denied");
+    }
   };
 
   const startKlingImagePolling = (taskId: string, assetId: string, startTime: number) => {
@@ -665,7 +695,7 @@ const App = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const currentModel = MODELS.find(m => m.id === selectedModel);
-    const max = (mainCategory === 'image') ? (currentModel?.maxImages || 4) : ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1);
+    const max = (!isVideoMode) ? (currentModel?.maxImages || 4) : ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1);
     const remaining = max - referenceImages.length;
     if (remaining <= 0) { 
       setError(`当前模型最多支持 ${max} 张参考图`); 
@@ -695,7 +725,7 @@ const App = () => {
 不要包含任何宽高比参数（如 --ar, --aspect-ratio）。
 只输出优化后的提示词文本，不要输出其他任何解释。`;
 
-     if (mainCategory === 'video') {
+     if (isVideoMode) {
        sys = `你是一位专业的AI视频提示词专家。请根据用户的输入，生成一段完整、连贯、高质量的中文视频生成提示词。
 该提示词应包含主体描述、场景细节、光影氛围、镜头语言（如运镜方式）和视频风格。
 要求：
@@ -1036,8 +1066,63 @@ const App = () => {
     }
   };
 
+  const executeVideoRemix = async () => {
+    if (!remixingAsset || !remixingAsset.taskId || !remixPrompt.trim()) return;
+    let key = config.apiKey || safeEnvKey;
+    
+    // Create placeholder for the remixed video
+    const newId = generateUUID();
+    const startTime = Date.now();
+    
+    const placeholder: GeneratedAsset = {
+        id: newId, 
+        url: '', 
+        type: 'video', 
+        prompt: remixPrompt,
+        modelId: remixingAsset.modelId, 
+        modelName: remixingAsset.modelName + ' (Remix)',
+        durationText: remixingAsset.durationText,
+        genTimeLabel: '重绘中...',
+        timestamp: startTime, 
+        status: 'loading',
+        config: { ...remixingAsset.config, prompt: remixPrompt, isRemix: true }
+    };
+    
+    setGeneratedAssets(prev => [placeholder, ...prev]);
+    setActiveModal(null); // Close modal immediately
+
+    try {
+        const response = await fetch(`${config.baseUrl}/v1/videos/${remixingAsset.taskId}/remix`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${key}`,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ prompt: remixPrompt })
+        });
+        
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || "视频重绘接口错误");
+        
+        const tid = data.id || data.data?.id || data.task_id;
+        
+        const updatedAsset: any = { ...placeholder, status: 'queued', taskId: tid };
+        setGeneratedAssets(prev => prev.map(a => a.id === newId ? updatedAsset : a));
+        saveAssetToDB(updatedAsset);
+        startVideoPolling(tid, newId, startTime, remixingAsset.modelId);
+        
+    } catch (err: any) {
+        setError(err.message);
+        setGeneratedAssets(prev => prev.map(a => a.id === newId ? { ...a, status: 'failed', genTimeLabel: '失败' } : a));
+    }
+    
+    setRemixingAsset(null);
+    setRemixPrompt('');
+  };
+
   const executeGeneration = async (overrideConfig?: any) => {
-    if (mainCategory === 'video' && !overrideConfig) { executeVideoGeneration(); return; }
+    if (isVideoMode && !overrideConfig) { executeVideoGeneration(); return; }
     if (overrideConfig?.type === 'video') { executeVideoGeneration(overrideConfig); return; }
 
     const tPrompt = overrideConfig?.prompt ?? prompt;
@@ -1263,6 +1348,15 @@ const App = () => {
   };
 
   const handleAssetEdit = (asset: GeneratedAsset) => {
+     if (asset.type === 'video') {
+        if (asset.modelId.includes('sora-2')) {
+            setRemixingAsset(asset);
+            setRemixPrompt(asset.prompt);
+            setActiveModal('video-remix');
+        }
+        return;
+     }
+
      if (asset.type === 'image' && asset.url) {
         const matches = asset.url.match(/^data:([^;]+);base64,(.+)$/);
         const mimeType = matches ? matches[1] : 'image/png';
@@ -1326,14 +1420,14 @@ const App = () => {
         <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar">
           <section className="space-y-3">
             <SectionLabel text="1.创作类型 / Creation Type" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <button 
                 onClick={() => setMainCategory('image')} 
                 className={`relative h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'image' ? 'bg-brand-yellow brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-yellow/20'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'image' ? 'block' : 'hidden'}`}>Selected</div>
                 <ImageIcon className={`w-8 h-8 mb-1 ${mainCategory === 'image' ? 'text-black scale-110' : 'text-slate-400 group-hover:text-black group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xl font-black uppercase italic tracking-tighter ${mainCategory === 'image' ? 'text-black' : 'text-slate-500 group-hover:text-black'}`}>图片创作</span>
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'image' ? 'text-black' : 'text-slate-500 group-hover:text-black'}`}>图片创作</span>
               </button>
 
               <button 
@@ -1342,13 +1436,22 @@ const App = () => {
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'video' ? 'block' : 'hidden'}`}>Selected</div>
                 <Film className={`w-8 h-8 mb-1 ${mainCategory === 'video' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-red group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xl font-black uppercase italic tracking-tighter ${mainCategory === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-brand-red'}`}>视频制作</span>
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-brand-red'}`}>视频制作</span>
+              </button>
+
+              <button 
+                onClick={handleAgentClick} 
+                className={`relative h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'agent' ? 'bg-brand-blue brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-blue/10'}`}
+              >
+                <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'agent' ? 'block' : 'hidden'}`}>Selected</div>
+                <Shield className={`w-8 h-8 mb-1 ${mainCategory === 'agent' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-blue group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'agent' ? 'text-white' : 'text-slate-500 group-hover:text-brand-blue'}`}>代理专区</span>
               </button>
             </div>
             
             <div className={`p-3 bg-brand-cream border-2 border-black brutalist-shadow-sm ${referenceImages.length > 0 ? 'solid-box-green' : 'solid-box-purple'}`}>
                 <div className="flex justify-between items-center mb-1">
-                    <h3 className={labelClass}>参考底稿 (可选) {(mainCategory === 'video') && `(限${(selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? '2' : '1'}张)`}</h3>
+                    <h3 className={labelClass}>参考底稿 (可选) {(isVideoMode) && `(限${(selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? '2' : '1'}张)`}</h3>
                     {referenceImages.length > 0 && <span className="text-brand-green text-[10px] font-normal flex items-center gap-1"><Check className="w-3 h-3"/> READY</span>}
                 </div>
                 {referenceImages.length > 0 ? (
@@ -1359,7 +1462,7 @@ const App = () => {
                                onDoubleClick={() => setPreviewRefImage(img)}>
                             <img src={img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`} className="w-full h-full object-cover" />
                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center uppercase py-0.5">
-                               {mainCategory === 'video' && (selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? (idx === 0 ? '首帧' : '尾帧') : 'REF'}
+                               {isVideoMode && (selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? (idx === 0 ? '首帧' : '尾帧') : 'REF'}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); removeReferenceImage(img.id); }} 
                                     className="absolute -top-2.5 -right-2.5 bg-brand-red text-white border-2 border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform brutalist-shadow-sm z-10">
@@ -1367,15 +1470,15 @@ const App = () => {
                             </button>
                           </div>
                         ))}
-                        {(mainCategory === 'image' ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1)) && (
+                        {(!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < ((selectedVideoModel.startsWith('veo') || selectedVideoModel.startsWith('grok')) ? 2 : 1)) && (
                           <label className="w-24 h-24 border-2 border-black flex items-center justify-center cursor-pointer bg-white brutalist-shadow-sm">
-                            <Plus className="w-6 h-6" /><input type="file" multiple={mainCategory === 'image'} className="hidden" onChange={handleImageUpload} />
+                            <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode} className="hidden" onChange={handleImageUpload} />
                           </label>
                         )}
                     </div>
                 ) : (
                     <label className="w-full py-2.5 flex flex-col items-center justify-center bg-brand-purple text-white border-2 border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-[13px] hover:translate-y-1 hover:shadow-none transition-all">
-                        <input type="file" multiple={mainCategory === 'image'} className="hidden" onChange={handleImageUpload} />
+                        <input type="file" multiple={!isVideoMode} className="hidden" onChange={handleImageUpload} />
                         上传图片/UPLOAD
                     </label>
                 )}
@@ -1387,12 +1490,12 @@ const App = () => {
             <div className="p-3 bg-brand-cream border-2 border-black brutalist-shadow-sm space-y-4">
               <div className="space-y-1">
                 <label className={labelClass}>选择生成模型 GENRE</label>
-                <select value={mainCategory === 'image' ? selectedModel : selectedVideoModel} onChange={(e) => mainCategory === 'image' ? setSelectedModel(e.target.value) : setSelectedVideoModel(e.target.value)} className={selectClass}>
-                  {(mainCategory === 'image' ? MODELS : VIDEO_MODELS).map(m => <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>)}
+                <select value={!isVideoMode ? selectedModel : selectedVideoModel} onChange={(e) => !isVideoMode ? setSelectedModel(e.target.value) : setSelectedVideoModel(e.target.value)} className={selectClass}>
+                  {(!isVideoMode ? MODELS : VIDEO_MODELS).map(m => <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>)}
                 </select>
               </div>
 
-              {mainCategory === 'image' && currentImageModel && (
+              {!isVideoMode && currentImageModel && (
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <label className={labelClass}>比例 ASPECT</label>
@@ -1409,7 +1512,7 @@ const App = () => {
                 </div>
               )}
 
-              {mainCategory === 'video' && currentVideoModel && (
+              {isVideoMode && currentVideoModel && (
                 <div className="grid grid-cols-2 gap-2.5">
                   <div className="space-y-1">
                     <label className={labelClass}>比例 ASPECT</label>
@@ -1612,7 +1715,7 @@ const App = () => {
                      <button disabled={asset.status !== 'completed' && asset.status !== 'failed'} onClick={(e) => { e.stopPropagation(); handleAssetRefresh(asset); }} className="flex-1 py-1.5 bg-white border-2 border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-yellow hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-bold uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
                         <RefreshCw className="w-3 h-3" /> 刷新
                      </button>
-                     <button disabled={asset.status !== 'completed' || asset.type === 'video'} onClick={(e) => { e.stopPropagation(); handleAssetEdit(asset); }} className="flex-1 py-1.5 bg-white border-2 border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-yellow hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-bold uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
+                     <button disabled={asset.status !== 'completed' || (asset.type === 'video' && !asset.modelId.includes('sora-2'))} onClick={(e) => { e.stopPropagation(); handleAssetEdit(asset); }} className="flex-1 py-1.5 bg-white border-2 border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-yellow hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-bold uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
                         <Edit className="w-3 h-3" /> 编辑
                      </button>
                      <button disabled={asset.status !== 'completed' || asset.type === 'video'} onClick={(e) => { e.stopPropagation(); handleAssetGenVideo(asset); }} className="flex-1 py-1.5 bg-white border-2 border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-bold uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
@@ -1644,6 +1747,31 @@ const App = () => {
         />
       )}
 
+      {activeModal === 'agent-login' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-[400px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
+            <ModalHeader title="代理登录 / AGENT LOGIN" icon={Shield} onClose={() => setActiveModal(null)} bgColor="bg-brand-blue" />
+            <div className="p-8 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold uppercase">用户名 / USERNAME</label>
+                <input 
+                  type="text" 
+                  value={loginUser} 
+                  onChange={(e) => setLoginUser(e.target.value)} 
+                  onKeyDown={(e) => e.key === 'Enter' && handleAgentLogin()}
+                  className="w-full p-3 border-2 border-black font-bold text-lg outline-none brutalist-input"
+                  placeholder="请输入授权用户名"
+                  autoFocus
+                />
+              </div>
+              <button onClick={handleAgentLogin} className="w-full py-3 bg-brand-blue text-white border-2 border-black font-bold text-xl brutalist-shadow-sm hover:translate-y-1 hover:shadow-none transition-all uppercase tracking-tighter italic">
+                进入专区 / ENTER
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeModal === 'announcement' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-[550px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
@@ -1660,21 +1788,21 @@ const App = () => {
               <div className="space-y-4">
                  <div className="bg-[#fdf2f8] border-2 border-black p-4 brutalist-shadow-sm transition-transform hover:-translate-y-1">
                     <h3 className="font-bold text-lg mb-2 italic uppercase flex items-center gap-2">
-                        <span className="bg-brand-red text-white px-2 py-0.5 text-xs border border-black">NEW MODEL</span>
-                        视频模型上新
+                        <span className="bg-brand-red text-white px-2 py-0.5 text-xs border border-black">UPDATE</span>
+                        功能更新
                     </h3>
                     <p className="text-sm font-bold text-slate-700 leading-relaxed italic">
-                        1、新增视频生成模型 <span className="text-black bg-brand-yellow px-1 border border-black">grok-video-3</span>，优点：生成速度快。
+                        1、sora 2生成后的视频支持编辑 (Video Editing Support)。
                     </p>
                  </div>
 
                  <div className="bg-[#f0fdf4] border-2 border-black p-4 brutalist-shadow-sm transition-transform hover:-translate-y-1">
                     <h3 className="font-bold text-lg mb-2 italic uppercase flex items-center gap-2">
-                        <span className="bg-brand-green text-black px-2 py-0.5 text-xs border border-black">NEW IMAGE</span>
-                        图片模型上新
+                        <span className="bg-brand-green text-black px-2 py-0.5 text-xs border border-black">NEW ZONE</span>
+                        代理专区
                     </h3>
                     <p className="text-sm font-bold text-slate-700 leading-relaxed italic">
-                        2、新增最新图片创作模型 <span className="text-black bg-brand-yellow px-1 border border-black">kling image o1</span>，支持1K，2K。
+                        2、代理专区，新增推广策略，助力代理多多开单。
                     </p>
                  </div>
               </div>
@@ -1771,7 +1899,7 @@ const App = () => {
 
       {activeModal === 'usage' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-[500px] bg-brand-cream border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
+          <div className="w-[550px] bg-brand-cream border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
             <ModalHeader title="Usage Flow (使用流程)" icon={BookOpen} onClose={() => setActiveModal(null)} />
             <div className="p-8 space-y-6">
               {[
@@ -1967,6 +2095,33 @@ const App = () => {
                  <button onClick={() => setActiveModal(null)} className="flex-1 py-3 bg-white border-2 border-black font-bold uppercase hover:bg-slate-100 transition-colors brutalist-shadow-sm">取消</button>
                  <button onClick={confirmSavePrompt} disabled={!saveName.trim()} className="flex-1 py-3 bg-brand-green border-2 border-black font-bold uppercase hover:translate-y-0.5 hover:shadow-none transition-all brutalist-shadow-sm disabled:opacity-50">确认保存</button>
                </div>
+             </div>
+           </div>
+         </div>
+      )}
+
+      {activeModal === 'video-remix' && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+           <div className="w-[500px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative flex flex-col">
+             <ModalHeader title="视频重绘 / VIDEO REMIX" icon={Edit} onClose={() => setActiveModal(null)} bgColor="bg-brand-red" />
+             <div className="p-8 space-y-4">
+                <div className="space-y-2">
+                    <p className="text-sm font-bold text-slate-500 uppercase italic">请输入新的提示词以编辑视频内容：</p>
+                    <textarea 
+                        value={remixPrompt} 
+                        onChange={(e) => setRemixPrompt(e.target.value)} 
+                        placeholder="描述您想如何修改这段视频..." 
+                        className="w-full h-32 p-3 border-2 border-black font-normal bg-slate-50 focus:bg-white focus:outline-none brutalist-input resize-none"
+                    />
+                </div>
+                <div className="p-4 bg-brand-cream border-2 border-black border-dashed flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-brand-red flex-shrink-0"/>
+                    <p className="text-xs font-bold text-slate-700 italic">重绘将基于原视频生成新的内容，时长和比例将保持不变。</p>
+                </div>
+                <div className="flex gap-4 pt-4">
+                    <button onClick={() => setActiveModal(null)} className="flex-1 py-3 bg-white border-2 border-black font-bold uppercase hover:bg-slate-100 transition-colors brutalist-shadow-sm">取消</button>
+                    <button onClick={executeVideoRemix} disabled={!remixPrompt.trim()} className="flex-1 py-3 bg-brand-yellow border-2 border-black font-bold uppercase hover:translate-y-0.5 hover:shadow-none transition-all brutalist-shadow-sm disabled:opacity-50">开始重绘</button>
+                </div>
              </div>
            </div>
          </div>
