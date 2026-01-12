@@ -8,9 +8,8 @@ import {
   Square, CheckSquare, Megaphone, ExternalLink, Lock,
   History, Copy, ClipboardCheck, Trash2,
   AlertTriangle, Palette, Bookmark, Wand2, GripVertical, Save,
-  Image as ImageIcon, Film, Folder, Tag, LayoutGrid, ChevronDown,
-  BookOpen, Headset, Shield,
-  Paperclip, Send, FileText, Music, Rocket, Mic, Volume2, Move,
+  Image as ImageIcon, Film, BookOpen, Headset, Shield,
+  Paperclip, Send, FileText, Music, Rocket, Mic, Volume2,
   User, VolumeX
 } from 'lucide-react';
 
@@ -854,11 +853,9 @@ const App = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 });
-  const [selectionCurrent, setSelectionCurrent] = useState({ x: 0, y: 0 });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [videoLinkInput, setVideoLinkInput] = useState('');
   
   // Library State & other states...
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
@@ -1348,20 +1345,9 @@ const App = () => {
   };
 
   // ... (Other handlers like addVideoLink, removeReference, optimizePrompt, etc. remain the same) ...
-  const handleAddVideoLink = () => {
-    if (!videoLinkInput.trim()) return;
-    setReferenceVideo({
-        id: generateUUID(),
-        mimeType: 'video/mp4',
-        data: videoLinkInput.trim()
-    });
-    setVideoLinkInput('');
-    setError(null);
-  };
   
   const removeReferenceImage = (id: string) => setReferenceImages(prev => prev.filter(img => img.id !== id));
   const removeReferenceAudio = () => setReferenceAudio(null);
-  const removeReferenceVideo = () => setReferenceVideo(null);
 
   const optimizePrompt = async () => {
      if (!prompt.trim() && referenceImages.length === 0) return;
@@ -2242,13 +2228,11 @@ const App = () => {
       if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a') || (e.target as HTMLElement).closest('[data-asset-card="true"]')) return;
       setIsSelecting(true);
       setSelectionStart({ x: e.clientX, y: e.clientY });
-      setSelectionCurrent({ x: e.clientX, y: e.clientY });
       if (!e.shiftKey) setSelectedAssetIds(new Set());
   };
 
   const handleContainerMouseMove = (e: React.MouseEvent) => {
     if (!isSelecting) return;
-    setSelectionCurrent({ x: e.clientX, y: e.clientY });
     
     const x1 = Math.min(selectionStart.x, e.clientX);
     const y1 = Math.min(selectionStart.y, e.clientY);
@@ -2431,9 +2415,6 @@ const App = () => {
         
         {/* Sidebar Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar">
-          {/* ... (Existing sections 1, 2, and buttons - kept exactly as they were in provided file content) ... */}
-          {/* Note: I'm not repeating the full JSX here to save space as it's identical to input except for imported/used logic which is updated above. 
-              The 'content' block requires the full file content, so I will paste the entire file below. */}
           
           <section className="space-y-3">
             <SectionLabel text="1.创作类型 / Creation Type" />
@@ -3485,7 +3466,7 @@ const App = () => {
                     <div className="flex flex-col gap-3">
                         {libraryPrompts
                           .filter(p => selectedCategory === '全部' || p.category === selectedCategory)
-                          .map((p, idx) => {
+                          .map((p) => {
                             const isEditing = editingLibraryId === p.id;
                             const globalIndex = libraryPrompts.indexOf(p); // Use absolute index for drag
                             return (
@@ -3657,6 +3638,29 @@ const App = () => {
                     </div>
                 </div>
 
+            </div>
+        </div>
+      )}
+
+      {previewRefImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4" onClick={() => setPreviewRefImage(null)}>
+            <div className="max-w-[95vw] max-h-[95vh] w-auto h-auto bg-white border-4 border-black brutalist-shadow flex flex-col animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                <div className="h-14 bg-brand-yellow border-b-4 border-black flex justify-between items-center px-4 shrink-0">
+                    <span className="font-bold text-lg uppercase italic tracking-wider">PREVIEW REFERENCE</span>
+                    <button onClick={() => setPreviewRefImage(null)} className="w-8 h-8 bg-brand-red text-white border-2 border-black flex items-center justify-center hover:bg-black transition-colors brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="flex-1 bg-slate-100 p-4 md:p-8 flex items-center justify-center min-h-[300px] overflow-hidden relative">
+                     <img src={previewRefImage.data.startsWith('http') ? previewRefImage.data : `data:${previewRefImage.mimeType};base64,${previewRefImage.data}`} className="max-w-full max-h-[70vh] w-auto h-auto object-contain shadow-xl border-2 border-black bg-white" />
+                </div>
+                
+                <div className="p-4 bg-white border-t-4 border-black flex justify-end">
+                     <button onClick={() => setPreviewRefImage(null)} className="px-6 py-2 bg-white border-2 border-black font-bold uppercase hover:bg-slate-100 transition-colors text-sm brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none">
+                        关闭 / CLOSE
+                    </button>
+                </div>
             </div>
         </div>
       )}
