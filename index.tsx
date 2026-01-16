@@ -1265,6 +1265,14 @@ const App = () => {
         }
     }, 5000);
   };
+  
+  const resetInputState = () => {
+    setPrompt('');
+    setReferenceImages([]);
+    setReferenceVideo(null);
+    setReferenceAudio(null);
+    setError(null);
+  };
 
   // ... (Image/Video Upload handlers) ...
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2594,7 +2602,7 @@ const App = () => {
             <SectionLabel text="1.创作类型 / Creation Type" />
             <div className="flex gap-2">
               <button 
-                onClick={() => setMainCategory('image')} 
+                onClick={() => { setMainCategory('image'); resetInputState(); }} 
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'image' ? 'bg-brand-yellow brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-yellow/20'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'image' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
@@ -2603,7 +2611,7 @@ const App = () => {
               </button>
 
               <button 
-                onClick={() => setMainCategory('video')} 
+                onClick={() => { setMainCategory('video'); resetInputState(); }} 
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'video' ? 'bg-brand-red brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-red/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'video' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
@@ -2612,7 +2620,7 @@ const App = () => {
               </button>
 
               <button 
-                onClick={() => setMainCategory('kling')} 
+                onClick={() => { setMainCategory('kling'); resetInputState(); }} 
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'kling' ? 'bg-brand-green brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-green/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'kling' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
@@ -2621,7 +2629,7 @@ const App = () => {
               </button>
 
               <button 
-                onClick={() => setMainCategory('audio')} 
+                onClick={() => { setMainCategory('audio'); resetInputState(); }} 
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'audio' ? 'bg-brand-purple brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-purple/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'audio' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
@@ -2630,7 +2638,7 @@ const App = () => {
               </button>
 
               <button 
-                onClick={() => setMainCategory('proxy')} 
+                onClick={() => { setMainCategory('proxy'); resetInputState(); }} 
                 className={`relative w-[60px] h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'proxy' ? 'bg-brand-blue brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-blue/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'proxy' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
@@ -2954,6 +2962,7 @@ const App = () => {
                   <select 
                     value={!isVideoMode && !isKlingMode && !isAudioMode ? selectedModel : (isKlingMode ? selectedKlingModel : (isAudioMode ? selectedAudioModel : selectedVideoModel))} 
                     onChange={(e) => {
+                        resetInputState();
                         if (isAudioMode) setSelectedAudioModel(e.target.value);
                         else if (!isVideoMode && !isKlingMode) setSelectedModel(e.target.value);
                         else if (isKlingMode) setSelectedKlingModel(e.target.value);
