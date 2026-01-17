@@ -5,7 +5,7 @@ import {
   Loader2, Download,
   Bot, X, AlertCircle, Plus,
   RefreshCw, Edit, Maximize2, Minimize2, Check,
-  Square, CheckSquare, Megaphone, ExternalLink, Lock,
+  Square, CheckSquare, Megaphone, ExternalLink,
   History, Copy, ClipboardCheck, Trash2,
   AlertTriangle, Palette, Bookmark, Wand2, GripVertical, Save,
   Image as ImageIcon, Film, BookOpen, Headset, Shield,
@@ -539,7 +539,6 @@ const deleteAssetFromDB = async (id: string) => {
 };
 
 // --- ChatBot Component ---
-// ... (ChatBot component code remains the same)
 
 interface ChatMessage {
     role: 'user' | 'model';
@@ -744,7 +743,7 @@ const ChatBot = ({ config }: { config: AppConfig }) => {
             
             {/* Chat Window */}
             {isOpen && (
-                <div className="w-[350px] md:w-[400px] h-[500px] bg-white border-4 border-black brutalist-shadow flex flex-col mb-2 animate-in slide-in-from-bottom-5 fade-in duration-200 origin-bottom-right absolute bottom-16 right-0">
+                <div className="w-[380px] md:w-[600px] h-[600px] md:h-[750px] max-h-[85vh] bg-white border-4 border-black brutalist-shadow flex flex-col mb-2 animate-in slide-in-from-bottom-5 fade-in duration-200 origin-bottom-right absolute bottom-16 right-0">
                     <div className="bg-brand-yellow p-3 border-b-4 border-black flex justify-between items-center cursor-move" onMouseDown={handleMouseDown}>
                         <div className="flex items-center gap-2">
                              <Bot className="w-6 h-6 text-black" />
@@ -875,13 +874,13 @@ const ChatBot = ({ config }: { config: AppConfig }) => {
 // ... (Sub-components: SectionLabel, CircularButton, ModalHeader remain the same)
 
 const SectionLabel = ({ text, link }: { text: string, link?: { href: string, text: string } }) => (
-  <div className="border-b-2 border-black pb-0.5 mb-1.5 flex justify-between items-end">
-    <label className="text-sm font-normal uppercase tracking-tighter cursor-default">
+  <div className="border-b-2 border-black pb-1 mb-3 flex justify-between items-end">
+    <label className="text-sm font-black uppercase italic tracking-tighter cursor-default">
       {text}
     </label>
     {link && (
-      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-sm font-normal uppercase tracking-tighter text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors underline decoration-auto underline-offset-2">
-        <BookOpen className="w-4 h-4"/> {link.text}
+      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold uppercase tracking-tight text-blue-600 hover:text-black flex items-center gap-1 transition-colors">
+        <BookOpen className="w-3 h-3"/> {link.text}
       </a>
     )}
   </div>
@@ -1001,6 +1000,9 @@ const App = () => {
       if (model) {
           if (model.supportedAspectRatios && !model.supportedAspectRatios.includes(videoRatio)) {
               setVideoRatio(model.supportedAspectRatios[0]);
+          }
+          if (model.options && videoOptionIdx >= model.options.length) {
+              setVideoOptionIdx(0);
           }
       }
     } else if (isKlingMode) {
@@ -1938,7 +1940,12 @@ const App = () => {
     const startTime = Date.now();
     
     const tRatio = overrideConfig?.videoRatio ?? (isKling ? klingRatio : videoRatio);
-    const tOptIdx = overrideConfig?.videoOptionIdx ?? (isKling ? klingOptionIdx : videoOptionIdx);
+    let tOptIdx = overrideConfig?.videoOptionIdx ?? (isKling ? klingOptionIdx : videoOptionIdx);
+    
+    if (modelDef && modelDef.options && tOptIdx >= modelDef.options.length) {
+        tOptIdx = 0;
+    }
+
     const tSyncAudio = overrideConfig?.isSyncAudio ?? isSyncAudio;
     const tRefs = overrideConfig?.referenceImages ?? referenceImages;
     const tRefVideo = overrideConfig?.referenceVideo ?? referenceVideo;
@@ -2594,8 +2601,8 @@ const App = () => {
   const currentImageModel = MODELS.find(m => m.id === selectedModel);
   const currentVideoModel = VIDEO_MODELS.find(m => m.id === selectedVideoModel);
   const currentKlingModel = KLING_MODELS.find(m => m.id === selectedKlingModel);
-  const labelClass = "font-normal text-[13px] text-black uppercase";
-  const selectClass = "w-full p-1.5 border-2 border-black font-normal bg-white brutalist-shadow-sm focus:outline-none text-xs";
+  const labelClass = "font-bold text-[11px] text-black uppercase tracking-tight mb-1 flex items-center gap-1.5";
+  const selectClass = "w-full h-9 px-2 border-2 border-black font-bold bg-white brutalist-shadow-sm focus:outline-none text-xs appearance-none";
   
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F1F5F9] md:h-screen overflow-hidden" 
@@ -2628,8 +2635,8 @@ const App = () => {
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'image' ? 'bg-brand-yellow brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-yellow/20'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'image' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
-                <ImageIcon className={`w-6 h-6 mb-1 ${mainCategory === 'image' ? 'text-black scale-110' : 'text-slate-400 group-hover:text-black group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xs font-black uppercase italic tracking-tighter ${mainCategory === 'image' ? 'text-black' : 'text-slate-500 group-hover:text-black'}`}>图片创作</span>
+                <ImageIcon className={`w-5 h-5 mb-1 ${mainCategory === 'image' ? 'text-black scale-110' : 'text-slate-400 group-hover:text-black group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'image' ? 'text-black' : 'text-slate-500 group-hover:text-black'}`}>图片创作</span>
               </button>
 
               <button 
@@ -2637,8 +2644,8 @@ const App = () => {
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'video' ? 'bg-brand-red brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-red/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'video' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
-                <Film className={`w-6 h-6 mb-1 ${mainCategory === 'video' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-red group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xs font-black uppercase italic tracking-tighter ${mainCategory === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-brand-red'}`}>视频制作</span>
+                <Film className={`w-5 h-5 mb-1 ${mainCategory === 'video' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-red group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'video' ? 'text-white' : 'text-slate-500 group-hover:text-brand-red'}`}>视频制作</span>
               </button>
 
               <button 
@@ -2646,8 +2653,8 @@ const App = () => {
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'kling' ? 'bg-brand-green brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-green/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'kling' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
-                <Rocket className={`w-6 h-6 mb-1 ${mainCategory === 'kling' ? 'text-black scale-110' : 'text-slate-400 group-hover:text-brand-green group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xs font-black uppercase italic tracking-tighter ${mainCategory === 'kling' ? 'text-black' : 'text-slate-500 group-hover:text-brand-green'}`}>可灵专区</span>
+                <Rocket className={`w-5 h-5 mb-1 ${mainCategory === 'kling' ? 'text-black scale-110' : 'text-slate-400 group-hover:text-brand-green group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'kling' ? 'text-black' : 'text-slate-500 group-hover:text-brand-green'}`}>可灵专区</span>
               </button>
 
               <button 
@@ -2655,8 +2662,8 @@ const App = () => {
                 className={`relative flex-1 h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'audio' ? 'bg-brand-purple brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-purple/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'audio' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
-                <AudioLines className={`w-6 h-6 mb-1 ${mainCategory === 'audio' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-purple group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xs font-black uppercase italic tracking-tighter ${mainCategory === 'audio' ? 'text-white' : 'text-slate-500 group-hover:text-brand-purple'}`}>语音合成</span>
+                <AudioLines className={`w-5 h-5 mb-1 ${mainCategory === 'audio' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-purple group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'audio' ? 'text-white' : 'text-slate-500 group-hover:text-brand-purple'}`}>语音合成</span>
               </button>
 
               <button 
@@ -2664,8 +2671,8 @@ const App = () => {
                 className={`relative w-[60px] h-24 flex flex-col items-center justify-center border-2 border-black transition-all duration-300 group overflow-hidden ${mainCategory === 'proxy' ? 'bg-brand-blue brutalist-shadow -translate-y-1' : 'bg-white hover:bg-brand-blue/10'}`}
               >
                 <div className={`absolute top-0 right-0 p-1 bg-black text-white text-[10px] font-bold uppercase ${mainCategory === 'proxy' ? 'block' : 'hidden'}`}><Check className="w-3 h-3"/></div>
-                <Shield className={`w-6 h-6 mb-1 ${mainCategory === 'proxy' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-blue group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
-                <span className={`text-xs font-black uppercase italic tracking-tighter ${mainCategory === 'proxy' ? 'text-white' : 'text-slate-500 group-hover:text-brand-blue'}`}>代理</span>
+                <Shield className={`w-5 h-5 mb-1 ${mainCategory === 'proxy' ? 'text-white scale-110' : 'text-slate-400 group-hover:text-brand-blue group-hover:scale-110'} transition-transform duration-300`} strokeWidth={2.5} />
+                <span className={`text-sm font-black uppercase italic tracking-tighter ${mainCategory === 'proxy' ? 'text-white' : 'text-slate-500 group-hover:text-brand-blue'}`}>代理</span>
               </button>
             </div>
             
@@ -3180,7 +3187,7 @@ const App = () => {
                 {!(isKlingMode && (selectedKlingModel === 'kling-motion-control' || selectedKlingModel === 'kling-avatar-image2video' || selectedKlingModel === 'kling-advanced-lip-sync')) && !isAudioMode && (
                     <div className="space-y-1">
                         <label className={labelClass}>生成数量 BATCH</label>
-                        <div className="flex items-center gap-2.5 bg-white border-2 border-black p-1.5 brutalist-shadow-sm">
+                        <div className="flex items-center gap-2.5 bg-white border-2 border-black p-1.5 brutalist-shadow-sm h-9">
                             <input type="range" min="1" max={isKlingMode ? "4" : "10"} value={generationCount} onChange={(e) => setGenerationCount(parseInt(e.target.value))} className="flex-1 accent-black h-4" />
                             <span className="font-normal text-black text-xs">{generationCount}</span>
                         </div>
@@ -3240,7 +3247,7 @@ const App = () => {
                           value={prompt} 
                           onChange={(e) => setPrompt(e.target.value)} 
                           placeholder={isAudioMode ? (audioGenMode === 'single' ? "阴森低语地说：指尖阵阵刺痛……我想定是那邪祟，正悄然近矣。" : "角色A（语气倦怠又敷衍）：行吧…… 那今天都有啥安排啊？\n角色B（语气兴奋又雀跃）：你绝对猜不到！") : "描述您的创作奇想..."} 
-                          className="w-full h-48 p-3 border-2 border-black font-normal text-[12px] bg-white focus:outline-none brutalist-input resize-y" 
+                          className="w-full h-48 p-3 border-2 border-black font-medium text-sm bg-white focus:outline-none brutalist-input resize-y leading-relaxed" 
                       />
                       {showSaveSuccess && (
                         <div className="absolute top-2 right-2 bg-brand-green text-black border-2 border-black px-2 py-1 text-[10px] font-bold brutalist-shadow-sm animate-in fade-in slide-in-from-right-2 z-20 italic">
@@ -3263,12 +3270,12 @@ const App = () => {
                 <div className="bg-white border-2 border-black p-4 brutalist-shadow-sm space-y-1.5">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertCircle className="w-4 h-4 text-brand-red" />
-                    <span className="font-bold text-[14px]">温馨提示 / TIPS</span>
+                    <span className="font-bold text-xs">温馨提示 / TIPS</span>
                   </div>
                   <div className="space-y-1.5 font-['Microsoft_YaHei','微软雅黑',sans-serif]">
-                    <p className="text-[12px] font-normal leading-tight text-slate-700">1、首次使用请在设置中输入API令牌；</p>
-                    <p className="text-[12px] font-normal leading-tight text-slate-700">2、如遇到多次请求失败请联系客服；</p>
-                    <p className="text-[12px] font-normal leading-tight text-slate-700">3、欢迎提供优化建议。</p>
+                    <p className="text-xs font-medium leading-tight text-slate-700">1、首次使用请在设置中输入API令牌；</p>
+                    <p className="text-xs font-medium leading-tight text-slate-700">2、如遇到多次请求失败请联系客服；</p>
+                    <p className="text-xs font-medium leading-tight text-slate-700">3、欢迎提供优化建议。</p>
                   </div>
                 </div>
               </>
@@ -3472,31 +3479,41 @@ const App = () => {
       {/* ... (Other modals: settings, links, usage, price, edit-prompt, styles, library, save-prompt-confirm, video-remix, previewAsset, previewRefImage - all remain unchanged) */}
       {activeModal === 'settings' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-[650px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
-            <ModalHeader title="系统设置 / Settings" icon={Settings2} onClose={() => setActiveModal(null)} />
+          <div className="w-[600px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
+            <ModalHeader title="系统设置 / SETTINGS" icon={Settings2} onClose={() => setActiveModal(null)} />
             <div className="p-8 space-y-6">
-              <p className="text-lg font-bold text-brand-red leading-tight italic">
-                API令牌分组：限时特价→企业级→default→优质gemini→逆向
-              </p>
               
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <a href={FIXED_BASE_URL} target="_blank" className="text-base font-bold uppercase text-black hover:text-brand-blue cursor-pointer underline flex items-center gap-1 italic">
-                    API令牌获取地址 <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase italic">
-                    <Lock className="w-3 h-3" /> 固定设置
-                  </span>
-                </div>
-                <div className="relative">
-                  <input type="text" value={FIXED_BASE_URL} readOnly className="w-full p-3 border-2 border-black font-bold text-lg bg-slate-100 text-slate-500 outline-none brutalist-input cursor-not-allowed italic" />
-                </div>
+              <div className="font-bold text-brand-red text-xl">
+                 API令牌分组：限时特价→企业级→default→优质gemini→逆向
               </div>
+
               <div className="space-y-2">
-                <label className="text-base font-bold uppercase text-black italic">API令牌 (KEY)</label>
-                <input type="password" value={tempConfig.apiKey} onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} placeholder="sk-..." className="w-full p-3 border-2 border-black font-bold text-lg focus:bg-brand-cream outline-none brutalist-input" />
+                <div className="flex justify-between items-end">
+                    <a href={FIXED_BASE_URL} target="_blank" className="text-lg font-black uppercase italic flex items-center gap-2 hover:underline decoration-2 underline-offset-4">
+                        API令牌获取地址 <ExternalLink className="w-5 h-5"/>
+                    </a>
+                </div>
+                <input 
+                    type="text" 
+                    value="https://www.vivaapi.cn" 
+                    readOnly 
+                    className="w-full h-14 px-4 border-2 border-black bg-slate-50 text-slate-600 text-lg font-bold font-mono outline-none" 
+                />
               </div>
-              <button onClick={saveConfig} className="w-full py-5 bg-brand-yellow border-4 border-black font-bold text-2xl brutalist-shadow hover:translate-y-1 hover:shadow-none transition-all uppercase tracking-tighter italic">
+
+              <div className="space-y-2">
+                <label className="text-lg font-black uppercase italic block">
+                    API令牌 (KEY)
+                </label>
+                <input 
+                    type="password" 
+                    value={tempConfig.apiKey} 
+                    onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} 
+                    className="w-full h-14 px-4 border-2 border-black text-xl font-bold font-mono outline-none focus:bg-brand-cream transition-colors tracking-widest" 
+                />
+              </div>
+
+              <button onClick={saveConfig} className="w-full h-16 bg-brand-yellow border-2 border-black font-black text-xl uppercase tracking-tighter hover:translate-y-1 hover:shadow-none brutalist-shadow transition-all flex items-center justify-center gap-2 mt-2">
                 保存设置/SAVE SETTINGS
               </button>
             </div>
@@ -3553,7 +3570,7 @@ const App = () => {
       {activeModal === 'usage' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-[550px] bg-brand-cream border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
-            <ModalHeader title="Usage Flow (使用流程)" icon={BookOpen} onClose={() => setActiveModal(null)} />
+            <ModalHeader title="使用流程 / USAGE FLOW" icon={BookOpen} onClose={() => setActiveModal(null)} />
             <div className="p-8 space-y-6">
               {[
                 { n: '1', t: '注册与令牌', d: <>
@@ -3577,7 +3594,7 @@ const App = () => {
       {activeModal === 'price' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-[500px] bg-white border-4 border-black brutalist-shadow animate-in zoom-in-95 relative">
-            <ModalHeader title="Price Desc (价格说明)" icon="¥" onClose={() => setActiveModal(null)} />
+            <ModalHeader title="价格说明 / PRICE DESCRIPTION" icon="¥" onClose={() => setActiveModal(null)} />
             <div className="p-0 max-h-[60vh] overflow-y-auto no-scrollbar">
               {[
                 {
