@@ -1006,8 +1006,8 @@ const PRICE_DATA = [
     category: '视频创作',
     items: [
       { m: 'Sora 2', p: '0.08元/条' },
-      { m: 'VEO 3.1 Fast', p: '0.11元/条' },
-      { m: 'Grok Video 3', p: '6s 0.14元/条，10s 0.40元/条' },
+      { m: 'VEO 3.1 Fast', p: '0.126元/条' },
+      { m: 'Grok Video 3', p: '6s 0.14元/条，10s 0.28元/条' },
       { m: 'VEO 3.1 Fast 4K', p: '0.181元/条' },
       { m: 'VEO 3.1 Mix 4K (多图融合)', p: '0.361元/条' },
       { m: 'KLING Control Std (动作转移)', p: '0.595元/秒' },
