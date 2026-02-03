@@ -12,7 +12,7 @@ import {
   Paperclip, FileText, Music, Mic, Volume2,
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
-  ChevronDown, Brush, Brain
+  ChevronDown, Brush, Brain, Monitor
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -1149,6 +1149,19 @@ const App = () => {
   
   // Determine if we should show the full-width view (like Chat, Proxy, Announcement)
   const isFullWidthMode = isChatMode || isProxyMode || isAnnouncementMode;
+
+  const handleSaveShortcut = () => {
+    const shortcut = `[InternetShortcut]
+URL=${window.location.href}
+`;
+    const blob = new Blob([shortcut], { type: 'text/plain' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'ViVa AI助手.url';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   useEffect(() => {
     configRef.current = config;
@@ -2734,6 +2747,13 @@ const App = () => {
         <header className="bg-brand-yellow pl-3 pr-5 border-b-2 border-black h-14 md:h-16 flex items-center justify-between transition-colors duration-300">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold italic tracking-tight text-black">ViVa AI助手</h1>
+            <button 
+                onClick={handleSaveShortcut} 
+                className="ml-2 w-8 h-8 flex items-center justify-center bg-white border border-black rounded-md hover:bg-black hover:text-white transition-all brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none" 
+                title="保存到桌面"
+            >
+                <Monitor className="w-4 h-4" />
+            </button>
           </div>
           {isFullWidthMode && (
           <div className="flex items-center gap-2 md:gap-3">
