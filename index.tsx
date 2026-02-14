@@ -12,7 +12,7 @@ import {
   Paperclip, FileText, Music, Mic, Volume2,
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
-  ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen
+  ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -3837,12 +3837,10 @@ RoleName必须严格对应用户输入中的角色名。`;
                         )}
                      </div>
                   ) : asset.status === 'failed' ? (
-                     <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-brand-cream gap-2">
-                        <div className="bg-brand-red text-white border border-black px-3 py-2 brutalist-shadow-sm flex flex-col items-center justify-center min-w-[80px]">
-                           <AlertTriangle className="w-5 h-5 mb-1" />
-                           <span className="font-bold text-xs uppercase tracking-tight text-center">生成失败</span>
-                        </div>
-                        <span className="text-xs text-brand-red uppercase font-normal italic tracking-widest mt-2 bg-white px-2 border border-black">{asset.genTimeLabel || 'FAIL'}</span>
+                     <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-[#f8fafc]">
+                        <Frown className="w-16 h-16 text-black mb-3 opacity-70" strokeWidth={1.5} />
+                        <span className="font-bold text-sm text-black tracking-wide">生成失败</span>
+                        <span className="text-[10px] text-slate-400 mt-2 max-w-full truncate px-2 font-normal">{asset.genTimeLabel || 'Unknown Error'}</span>
                      </div>
                   ) : asset.type === 'image' ? (
                     <img src={asset.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -3871,9 +3869,12 @@ RoleName必须严格对应用户输入中的角色名。`;
                   )}
                 </div>
                 <div className="p-4 bg-white space-y-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-normal text-xs text-brand-red bg-brand-yellow px-1.5 py-0.5 border border-black uppercase tracking-wider">
-                      {asset.modelName} {asset.config?.aspectRatio ? `(${asset.config.aspectRatio})` : asset.config?.videoRatio ? `(${asset.config.videoRatio})` : ''}
+                  <div className="flex justify-between items-center mb-1 border-b border-gray-100 pb-2">
+                    <span className="font-bold text-xs text-black uppercase truncate max-w-[65%]" title={asset.modelName}>
+                      {asset.modelName}
+                    </span>
+                    <span className="font-bold text-xs text-black uppercase">
+                       {asset.config?.aspectRatio || asset.config?.videoRatio || 'AUTO'}
                     </span>
                   </div>
                   
