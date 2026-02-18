@@ -12,7 +12,8 @@ import {
   Paperclip, FileText, Music, Mic, Volume2,
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
-  ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown
+  ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown,
+  MegaphoneOff
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -1076,6 +1077,7 @@ const PriceView = () => {
 const App = () => {
   const [mainCategory, setMainCategory] = useState<MainCategory>('image');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMarqueeVisible, setIsMarqueeVisible] = useState(true);
   
   // Chat state moved here for persistence
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: 'model', text: INITIAL_CHAT_MESSAGE_TEXT }]);
@@ -3782,6 +3784,16 @@ RoleName必须严格对应用户输入中的角色名。`;
            <button onClick={handleSelectAll} className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-white uppercase">
               {selectedAssetIds.size === generatedAssets.length && generatedAssets.length > 0 ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>} 全选
             </button>
+           
+           <button 
+              onClick={() => setIsMarqueeVisible(!isMarqueeVisible)} 
+              className="flex-shrink-0 flex items-center justify-center border border-black px-2 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-white uppercase"
+              title={isMarqueeVisible ? "关闭滚动公告" : "显示滚动公告"}
+           >
+              {isMarqueeVisible ? <MegaphoneOff className="w-4 h-4"/> : <Megaphone className="w-4 h-4"/>}
+           </button>
+
+           {isMarqueeVisible && (
            <div className="flex-1 overflow-hidden">
              <div className="animate-marquee whitespace-nowrap flex items-center gap-8">
                <span className="text-base font-medium text-brand-red flex items-center gap-2">
@@ -3802,6 +3814,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                </span>
              </div>
            </div>
+           )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6 no-scrollbar">
