@@ -201,6 +201,16 @@ const MODEL_CAPABILITIES: Record<string, { image: boolean; audio: boolean; video
 };
 
 const VIDEO_MODELS = [
+  {
+    id: 'seedance-2.0',
+    name: 'Seedance 2.0',
+    desc: '高清/多比例',
+    supportedAspectRatios: ['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'],
+    options: [
+      { q: '标清' },
+      { q: '高清' }
+    ]
+  },
   { 
     id: 'sora-2-all', 
     name: 'Sora-2-All', 
@@ -227,7 +237,9 @@ const VIDEO_MODELS = [
     supportedAspectRatios: ['9:16', '16:9', '2:3', '3:2', '1:1'],
     options: [
       {s: '6', q: '标清'},
-      {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'}
+      {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'},
+      {s: '15', q: '标清', modelIdOverride: 'grok-video-3-15s'},
+      {s: '15', q: '高清', modelIdOverride: 'grok-video-3-15s'}
     ] 
   },
   { 
@@ -1014,7 +1026,7 @@ const PRICE_DATA = [
     items: [
       { m: 'Sora 2', p: 'default分组 0.14元/条，sora-vip分组 0.56元/条' },
       { m: 'VEO 3.1 Fast', p: '0.126元/条' },
-      { m: 'Grok Video 3', p: '6s 0.14元/条，10s 0.28元/条' },
+      { m: 'Grok Video 3', p: '6s 0.14元/条，10s 0.28元/条，15S 0.35元/条' },
       { m: 'VEO 3.1 Fast 4K', p: '0.181元/条' },
       { m: 'VEO 3.1 Mix 4K (多图融合)', p: '0.361元/条' },
       { m: 'KLING Control Std (动作转移)', p: '0.595元/秒' },
@@ -1127,6 +1139,7 @@ const App = () => {
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
+  const [seedanceDuration, setSeedanceDuration] = useState(5);
   
   // Library State & other states...
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
@@ -1698,7 +1711,7 @@ URL=${window.location.href}
        
        const currentVideoModelDef = modelList.find(m => m.id === selectedId);
        const durationOption = currentVideoModelDef?.options[optionIdx];
-       const durationSeconds = durationOption ? durationOption.s : '未知';
+       const durationSeconds = (durationOption as any)?.s || '未知';
 
        sys = `你是一位专业的AI视频提示词专家。
 当前视频生成时长设置为：${durationSeconds}秒。
@@ -2209,6 +2222,7 @@ RoleName必须严格对应用户输入中的角色名。`;
     
     const tRatio = overrideConfig?.videoRatio ?? videoRatio;
     let tOptIdx = overrideConfig?.videoOptionIdx ?? videoOptionIdx;
+    const tSeedanceDuration = overrideConfig?.seedanceDuration ?? seedanceDuration;
     
     if (modelDef && modelDef.options && tOptIdx >= modelDef.options.length) {
         tOptIdx = 0;
@@ -2234,10 +2248,10 @@ RoleName必须严格对应用户输入中的角色名。`;
       placeholders.push({
         id: generateUUID(), url: '', type: 'video', prompt: tPrompt || '(无提示词)',
         modelId: tModelId, modelName: modelDef!.name,
-        durationText: `${modelDef!.options[tOptIdx].s === 'AUTO' ? 'Auto' : modelDef!.options[tOptIdx].s + 's'}`,
+        durationText: tModelId === 'seedance-2.0' ? `${tSeedanceDuration}s` : `${(modelDef!.options[tOptIdx] as any).s === 'AUTO' ? 'Auto' : (modelDef!.options[tOptIdx] as any).s + 's'}`,
         genTimeLabel: '生成中...',
         timestamp: startTime, status: 'loading',
-        config: { modelId: tModelId, videoRatio: tRatio, videoOptionIdx: tOptIdx, prompt: tPrompt, referenceImages: [...tRefs], referenceVideo: tRefVideo ? {...tRefVideo} : null, referenceAudio: tRefAudio ? {...tRefAudio} : null, type: 'video', isKlingMode: isKlingModel, isSyncAudio: tSyncAudio, klingOrientation: tKlingOrientation, klingKeepSound: tKlingKeepSound, klingDubVol: tKlingDubVol, klingSrcVol: tKlingSrcVol }
+        config: { modelId: tModelId, videoRatio: tRatio, videoOptionIdx: tOptIdx, prompt: tPrompt, referenceImages: [...tRefs], referenceVideo: tRefVideo ? {...tRefVideo} : null, referenceAudio: tRefAudio ? {...tRefAudio} : null, type: 'video', isKlingMode: isKlingModel, isSyncAudio: tSyncAudio, klingOrientation: tKlingOrientation, klingKeepSound: tKlingKeepSound, klingDubVol: tKlingDubVol, klingSrcVol: tKlingSrcVol, seedanceDuration: tSeedanceDuration }
       });
     }
     setGeneratedAssets(prev => [...placeholders, ...prev]);
@@ -2355,12 +2369,12 @@ RoleName必须严格对应用户输入中的角色名。`;
                 }
 
                 if (isJimengModel) {
-                    payload.duration = parseInt(modelDef!.options[tOptIdx].s);
+                    payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
                 }
                 
                 if (isKlingModel) {
                     // For other Kling models (like text2video or image2video)
-                    payload.duration = parseInt(modelDef!.options[tOptIdx].s);
+                    payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
                 }
 
                 if ((isKlingModel || isGrokModel) && tSyncAudio) {
@@ -2376,7 +2390,13 @@ RoleName必须严格对应用户输入中的角色名。`;
                 const formData = new FormData();
                 formData.append('model', apiModelId);
                 formData.append('prompt', tPrompt);
-                formData.append('seconds', modelDef!.options[tOptIdx].s);
+                
+                if (apiModelId === 'seedance-2.0') {
+                    formData.append('seconds', tSeedanceDuration.toString());
+                } else {
+                    formData.append('seconds', (modelDef!.options[tOptIdx] as any).s);
+                }
+                
                 formData.append('size', tRatio.replace(':', 'x'));
                 formData.append('watermark', 'false');
                 
@@ -2811,6 +2831,7 @@ RoleName必须严格对应用户输入中的角色名。`;
            setSelectedVideoModel(asset.config.modelId);
            setVideoRatio(asset.config.videoRatio);
            setVideoOptionIdx(asset.config.videoOptionIdx);
+           if (asset.config.seedanceDuration) setSeedanceDuration(asset.config.seedanceDuration);
            executeVideoGeneration(asset.config);
         }
      }
@@ -3006,9 +3027,9 @@ RoleName必须严格对应用户输入中的角色名。`;
                         
                         <div className="space-y-4">
                              {[
-                                { title: "Grok Video 3 升级", desc: "新增10S生成时长，支持音频同步功能。" },
-                                { title: "语音功能优化", desc: "语音多人模式输入方式已优化，支持直观的剧本编辑。" }
-                             ].map((item, idx) => (
+                               { title: "Grok Video 3 升级", desc: "新增15S生成时长，支持音频同步功能。" },
+                               { title: "语音功能优化", desc: "语音多人模式输入方式已优化，支持直观的剧本编辑。" }
+                            ].map((item, idx) => (
                                  <div key={idx} className="group relative py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors px-2">
                                      <h4 className="font-bold text-base md:text-lg mb-2">{item.title}</h4>
                                      <p className="text-sm md:text-base text-slate-600 leading-relaxed">{item.desc}</p>
@@ -3505,7 +3526,7 @@ RoleName必须严格对应用户输入中的角色名。`;
 
                 {isVideoMode && (
                     <>
-                        {selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? (
+                        {(selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') ? (
                             <div className="space-y-1">
                                 <label className={labelClass}>模式 MODE</label>
                                 <select 
@@ -3524,6 +3545,23 @@ RoleName必须严格对应用户输入中的角色名。`;
                                         ))
                                     )}
                                 </select>
+                            </div>
+                        ) : selectedVideoModel === 'seedance-2.0' ? (
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <div className="space-y-1">
+                                    <label className={labelClass}>比例 ASPECT</label>
+                                    <select value={videoRatio} onChange={(e) => setVideoRatio(e.target.value)} className={selectClass}>
+                                        {(currentVideoModel)?.supportedAspectRatios.map(r => <option key={r} value={r}>{ASPECT_RATIO_LABELS[r] || r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className={labelClass}>质量 QUALITY</label>
+                                    <select value={videoOptionIdx} onChange={(e) => setVideoOptionIdx(parseInt(e.target.value))} className={selectClass}>
+                                        {currentVideoModel?.options.map((opt, idx) => (
+                                            <option key={idx} value={idx}>{opt.q}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-2 gap-2.5">
@@ -3550,11 +3588,22 @@ RoleName必须严格对应用户输入中的角色名。`;
                                     ) : (
                                         currentVideoModel?.options.map((opt, idx) => (
                                             <option key={idx} value={idx} disabled={isSyncAudio && opt.q === '标准模式'}>
-                                                {opt.s === 'AUTO' ? '自动时长' : opt.s + 'S'} ({opt.q})
+                                                {(opt as any).s === 'AUTO' ? '自动时长' : (opt as any).s + 'S'} ({opt.q})
                                             </option>
                                         ))
                                     )}
                                 </select>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Seedance Slider */}
+                        {selectedVideoModel === 'seedance-2.0' && (
+                             <div className="space-y-1 mt-2">
+                                <label className={labelClass}>视频时长 DURATION (4-15S)</label>
+                                <div className="flex items-center gap-2.5 bg-white border border-black p-1.5 brutalist-shadow-sm h-10">
+                                    <input type="range" min="4" max="15" value={seedanceDuration} onChange={(e) => setSeedanceDuration(parseInt(e.target.value))} className="flex-1 accent-black h-4" />
+                                    <span className="font-normal text-black text-xs">{seedanceDuration}S</span>
                                 </div>
                             </div>
                         )}
@@ -4221,24 +4270,22 @@ RoleName必须严格对应用户输入中的角色名。`;
                                           <p className="text-sm text-slate-500 line-clamp-2 cursor-pointer hover:text-black transition-colors leading-relaxed" onClick={() => usePromptFromLibrary(p.text)} title={p.text}>{p.text}</p>
                                           
                                           <div className="flex items-center gap-4 pt-1">
-                                            <button onClick={() => usePromptFromLibrary(p.text)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-green uppercase transition-colors"><Check className="w-3 h-3"/> 使用</button>
-                                            <button onClick={() => { navigator.clipboard.writeText(p.text); }} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-blue uppercase transition-colors"><Copy className="w-3 h-3"/> 复制</button>
-                                            <button onClick={(e) => handleStartLibraryEdit(p, e)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-yellow uppercase transition-colors"><Edit className="w-3 h-3"/> 编辑</button>
-                                            <button onClick={(e) => removePromptFromLibrary(p.id, e)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-red uppercase transition-colors"><Trash2 className="w-3 h-3"/> 删除</button>
+                                            <button onClick={() => usePromptFromLibrary(p.text)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-green transition-colors uppercase">
+                                                <Zap className="w-3 h-3" /> Use
+                                            </button>
+                                            <button onClick={(e) => handleStartLibraryEdit(p, e)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-blue transition-colors uppercase">
+                                                <Edit className="w-3 h-3" /> Edit
+                                            </button>
+                                            <button onClick={(e) => removePromptFromLibrary(p.id, e)} className="flex items-center gap-1 text-[10px] font-normal text-slate-400 hover:text-brand-red transition-colors uppercase">
+                                                <Trash2 className="w-3 h-3" /> Del
+                                            </button>
                                           </div>
                                       </div>
                                     </div>
                                 )}
                               </div>
                             );
-                        })}
-                        
-                        {libraryPrompts.filter(p => selectedCategory === '全部' || p.category === selectedCategory).length === 0 && (
-                            <div className="flex flex-col items-center justify-center h-64 text-slate-300 border-2 border-dashed border-slate-200">
-                                <Bookmark className="w-12 h-12 mb-2 opacity-50"/>
-                                <p className="font-normal text-lg uppercase italic">这里空空如也</p>
-                            </div>
-                        )}
+                          })}
                     </div>
                 </div>
             </div>
@@ -4247,149 +4294,103 @@ RoleName必须严格对应用户输入中的角色名。`;
       )}
 
       {activeModal === 'save-prompt-confirm' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-           <div className="w-[400px] bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative">
-              <ModalHeader title="保存提示词" icon={Save} onClose={() => setActiveModal(null)} />
-              <div className="p-6 space-y-4">
-                 <div className="space-y-1">
-                    <label className="font-normal text-xs uppercase block">Name (名称)</label>
-                    <input value={saveName} onChange={e => setSaveName(e.target.value)} className="w-full border border-black p-2 outline-none focus:bg-brand-cream text-sm font-normal" placeholder="给提示词起个名字..." autoFocus />
-                 </div>
-                 <div className="space-y-1 relative">
-                    <label className="font-normal text-xs uppercase block">Category (分类)</label>
+         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+            <div className="bg-white border-2 border-black p-6 brutalist-shadow animate-in zoom-in-95 w-[400px] space-y-4">
+                <h3 className="font-bold text-lg uppercase italic">保存到词库 / SAVE PROMPT</h3>
+                <div className="space-y-3">
+                    <input autoFocus value={saveName} onChange={e => setSaveName(e.target.value)} className="w-full border border-black p-2 text-sm outline-none" placeholder="名称 (Name)" />
+                    
                     <div className="relative">
-                        <input 
-                            value={saveCategory} 
-                            onChange={e => { setSaveCategory(e.target.value); setShowSaveCategoryDropdown(true); }}
-                            onFocus={() => setShowSaveCategoryDropdown(true)}
-                            className="w-full border border-black p-2 outline-none focus:bg-brand-cream text-sm font-normal" 
-                            placeholder="选择或输入分类..." 
-                        />
+                        <div className="flex">
+                            <input value={saveCategory} onChange={e => setSaveCategory(e.target.value)} className="flex-1 border border-black p-2 text-sm outline-none border-r-0" placeholder="分类 (Category)" />
+                            <button onClick={() => setShowSaveCategoryDropdown(!showSaveCategoryDropdown)} className="px-2 bg-slate-100 border border-black hover:bg-slate-200">
+                                <ChevronDown className="w-4 h-4"/>
+                            </button>
+                        </div>
                         {showSaveCategoryDropdown && (
-                            <>
-                                <div className="fixed inset-0 z-10" onClick={() => setShowSaveCategoryDropdown(false)}></div>
-                                <div className="absolute top-full left-0 right-0 bg-white border border-black max-h-40 overflow-y-auto z-20 shadow-lg mt-1">
-                                    {categories.filter(c => c.toLowerCase().includes(saveCategory.toLowerCase())).map(c => (
-                                        <div key={c} onClick={() => { setSaveCategory(c); setShowSaveCategoryDropdown(false); }} className="px-3 py-2 hover:bg-slate-100 cursor-pointer text-sm">
-                                            {c}
-                                        </div>
-                                    ))}
-                                    {categories.filter(c => c.toLowerCase().includes(saveCategory.toLowerCase())).length === 0 && (
-                                        <div className="px-3 py-2 text-slate-400 text-sm italic">
-                                            将创建新分类 "{saveCategory}"
-                                        </div>
-                                    )}
-                                </div>
-                            </>
+                            <div className="absolute top-full left-0 right-0 border border-black border-t-0 bg-white max-h-40 overflow-y-auto z-10 shadow-lg">
+                                {categories.map(c => (
+                                    <div key={c} onClick={() => { setSaveCategory(c); setShowSaveCategoryDropdown(false); }} className="p-2 hover:bg-slate-100 cursor-pointer text-sm">
+                                        {c}
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </div>
-                 </div>
-                 <div className="pt-2 flex justify-end gap-2">
-                    <button onClick={() => setActiveModal(null)} className="px-4 py-2 bg-white border border-black font-normal text-xs uppercase hover:bg-slate-100">取消</button>
-                    <button onClick={confirmSavePrompt} disabled={!saveName.trim()} className="px-4 py-2 bg-brand-green border border-black font-normal text-xs uppercase hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">保存</button>
-                 </div>
-              </div>
-           </div>
-        </div>
+
+                    <div className="bg-slate-50 p-2 text-xs text-slate-500 border border-black line-clamp-3 italic">
+                        {prompt}
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={() => setActiveModal(null)} className="px-4 py-2 bg-white border border-black text-xs font-normal hover:bg-slate-100">取消</button>
+                    <button onClick={confirmSavePrompt} className="px-6 py-2 bg-brand-green border border-black text-xs font-normal hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all">确认保存</button>
+                </div>
+            </div>
+         </div>
       )}
 
       {activeModal === 'video-remix' && remixingAsset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="w-[500px] bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative">
-                <ModalHeader title="视频重绘 / VIDEO REMIX" icon={RefreshCw} onClose={() => { setActiveModal(null); setRemixingAsset(null); }} />
-                <div className="p-6 space-y-4">
-                    <div className="space-y-1">
-                        <label className="font-normal text-xs uppercase block">Prompt (重绘提示词)</label>
-                        <textarea 
-                            value={remixPrompt} 
-                            onChange={e => setRemixPrompt(e.target.value)} 
-                            className="w-full h-32 border border-black p-2 outline-none focus:bg-brand-cream text-sm font-normal resize-none" 
-                            placeholder="描述你想如何修改这个视频..." 
-                            autoFocus
-                        />
-                    </div>
-                    <div className="pt-2 flex justify-end gap-2">
-                        <button onClick={() => { setActiveModal(null); setRemixingAsset(null); }} className="px-4 py-2 bg-white border border-black font-normal text-xs uppercase hover:bg-slate-100">取消</button>
-                        <button onClick={executeVideoRemix} disabled={!remixPrompt.trim()} className="px-4 py-2 bg-brand-red text-white border border-black font-normal text-xs uppercase hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">开始重绘</button>
-                    </div>
-                </div>
+                 <ModalHeader title="视频重绘 / VIDEO REMIX" icon={RefreshCw} onClose={() => { setActiveModal(null); setRemixingAsset(null); }} />
+                 <div className="p-6 space-y-4">
+                     <div className="bg-brand-cream border border-black p-3 text-xs">
+                         <span className="font-bold">原提示词：</span> {remixingAsset.prompt}
+                     </div>
+                     <textarea 
+                        value={remixPrompt} 
+                        onChange={e => setRemixPrompt(e.target.value)}
+                        className="w-full h-32 border border-black p-3 text-sm outline-none resize-none focus:bg-slate-50"
+                        placeholder="请输入新的提示词用于重绘..."
+                        autoFocus
+                     />
+                     <div className="flex justify-end gap-3">
+                         <button onClick={() => { setActiveModal(null); setRemixingAsset(null); }} className="px-4 py-2 bg-white border border-black text-xs hover:bg-slate-100">取消</button>
+                         <button onClick={executeVideoRemix} disabled={!remixPrompt.trim()} className="px-6 py-2 bg-brand-green border border-black text-xs hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all disabled:opacity-50">开始重绘</button>
+                     </div>
+                 </div>
             </div>
         </div>
       )}
 
-      {/* Preview Modals */}
       {previewAsset && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setPreviewAsset(null)}>
-            <div 
-                className="bg-white border-2 border-black brutalist-shadow max-w-5xl w-full max-h-[90vh] flex flex-col relative animate-in zoom-in-95" 
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="bg-brand-yellow border-b-2 border-black p-4 flex justify-between items-center shrink-0 h-16">
-                     <h3 className="text-xl font-bold uppercase italic tracking-wider">PREVIEW ASSET</h3>
-                     <button onClick={() => setPreviewAsset(null)} className="bg-brand-red text-white w-8 h-8 flex items-center justify-center border border-black hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all">
-                        <X className="w-5 h-5"/>
-                     </button>
-                </div>
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={() => setPreviewAsset(null)}>
+          <button className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors z-[110]" onClick={() => setPreviewAsset(null)}>
+            <X className="w-8 h-8 drop-shadow-md" />
+          </button>
+          
+          <div className="w-full h-full flex items-center justify-center p-2 md:p-4" onClick={e => e.stopPropagation()}>
+             {previewAsset.type === 'image' ? (
+                <img src={previewAsset.url} className="max-w-full max-h-full object-contain shadow-2xl" />
+             ) : (
+                <video src={previewAsset.url} controls autoPlay className="max-w-full max-h-full shadow-2xl" />
+             )}
+          </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-hidden bg-[#f3f4f6] p-8 flex items-center justify-center min-h-[300px]">
-                     <div className="relative max-w-full max-h-full shadow-xl border-2 border-black bg-white">
-                         {previewAsset.type === 'image' ? (
-                            <img src={previewAsset.url} className="max-w-full max-h-[calc(90vh-12rem)] object-contain block" />
-                        ) : (
-                            <video src={previewAsset.url} className="max-w-full max-h-[calc(90vh-12rem)] object-contain block" controls autoPlay loop />
-                        )}
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="bg-white border-t-2 border-black p-6 shrink-0 flex flex-col md:flex-row justify-between items-end gap-6">
-                    <div className="flex-1 min-w-0 space-y-2">
-                        <div className="space-y-0.5">
-                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">PROMPT:</span>
-                             <p className="text-sm font-medium line-clamp-2 leading-relaxed text-black">"{previewAsset.prompt}"</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <span className="text-[10px] font-bold text-brand-red uppercase tracking-wider">
-                                {previewAsset.modelId.toUpperCase()} | {previewAsset.config?.aspectRatio || previewAsset.config?.videoRatio || 'AUTO'}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex gap-3 shrink-0 w-full md:w-auto">
-                         <button 
-                            onClick={() => setPreviewAsset(null)}
-                            className="flex-1 md:flex-none px-6 py-3 bg-white border border-black text-xs font-bold hover:bg-slate-50 transition-colors uppercase min-w-[100px]"
-                        >
-                            关闭
-                        </button>
-                        <button 
-                            onClick={(e) => handleAssetDownload(previewAsset, e)}
-                            className="flex-1 md:flex-none px-6 py-3 bg-brand-red text-white border border-black text-xs font-bold hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all uppercase min-w-[120px]"
-                        >
-                            DOWNLOAD
-                        </button>
-                    </div>
-                </div>
-            </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleAssetDownload(previewAsset, e); }} 
+            className="absolute bottom-8 right-8 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all border border-white/20 group z-[110]"
+            title="下载原图"
+          >
+            <Download className="w-8 h-8 group-hover:scale-110 transition-transform" />
+          </button>
         </div>
       )}
 
       {previewRefImage && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" onClick={() => setPreviewRefImage(null)}>
-            <button className="absolute top-4 right-4 text-white hover:text-brand-yellow transition-colors"><X className="w-10 h-10"/></button>
-            <div className="max-w-[90vw] max-h-[90vh] relative flex items-center justify-center" onClick={e => e.stopPropagation()}>
-                <img src={previewRefImage.data.startsWith('http') ? previewRefImage.data : `data:${previewRefImage.mimeType};base64,${previewRefImage.data}`} className="max-w-full max-h-[85vh] object-contain border-2 border-black shadow-2xl bg-white" />
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-10" onClick={() => setPreviewRefImage(null)}>
+            <div className="relative max-w-full max-h-full">
+                <img src={previewRefImage.data.startsWith('http') ? previewRefImage.data : `data:${previewRefImage.mimeType};base64,${previewRefImage.data}`} className="max-w-full max-h-[90vh] object-contain border-4 border-white" />
+                <button onClick={() => setPreviewRefImage(null)} className="absolute -top-12 right-0 text-white hover:text-red-500">
+                    <X className="w-8 h-8"/>
+                </button>
             </div>
         </div>
       )}
-
     </div>
   );
 };
 
-const container = document.getElementById('root');
-if (container) {
-  const root = createRoot(container);
-  root.render(<App />);
-}
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);
