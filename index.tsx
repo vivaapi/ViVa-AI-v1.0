@@ -55,6 +55,7 @@ interface ReferenceImage {
   data: string;
   mimeType: string;
   uploadStatus?: 'uploading' | 'success' | 'failed';
+  duration?: number;
 }
 
 interface ReferenceAudio {
@@ -1124,8 +1125,8 @@ const App = () => {
   const [libraryPrompts, setLibraryPrompts] = useState<SavedPrompt[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
-  const [referenceVideo, setReferenceVideo] = useState<ReferenceImage | null>(null);
-  const [referenceAudio, setReferenceAudio] = useState<ReferenceAudio | null>(null);
+  const [referenceVideos, setReferenceVideos] = useState<ReferenceImage[]>([]);
+  const [referenceAudios, setReferenceAudios] = useState<ReferenceAudio[]>([]);
   const [imageSize, setImageSize] = useState('AUTO');
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [generationCount, setGenerationCount] = useState(1);
@@ -1139,7 +1140,7 @@ const App = () => {
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
-  const [seedanceDuration, setSeedanceDuration] = useState(5);
+  const [seedanceDuration, setSeedanceDuration] = useState(10);
   
   // Library State & other states...
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
@@ -1542,8 +1543,8 @@ URL=${window.location.href}
   const resetInputState = () => {
     setPrompt('');
     setReferenceImages([]);
-    setReferenceVideo(null);
-    setReferenceAudio(null);
+    setReferenceVideos([]);
+    setReferenceAudios([]);
     setError(null);
     setDialogueLines([]);
   };
@@ -1558,7 +1559,6 @@ URL=${window.location.href}
 
   // ... (Other handlers are reused directly from original code) ...
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // ... same as before
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -1572,9 +1572,16 @@ URL=${window.location.href}
             max = 1;
         } else if (selectedVideoModel === 'veo_3_1-fast-components-4K') {
             max = 3;
+        } else if (selectedVideoModel === 'seedance-2.0') {
+            max = 9;
         } else {
             max = selectedVideoModel.startsWith('veo') ? 2 : 1;
         }
+    }
+
+    if (isVideoMode && selectedVideoModel === 'seedance-2.0') {
+        const totalFiles = referenceImages.length + referenceVideos.length + referenceAudios.length + files.length;
+        if (totalFiles > 12) { setError('文件总数不能超过 12 个'); return; }
     }
 
     const remaining = max - referenceImages.length;
@@ -1610,83 +1617,152 @@ URL=${window.location.href}
       };
       reader.readAsDataURL(file as Blob);
     });
+    e.target.value = '';
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    if (file.size > 100 * 1024 * 1024) {
-        setError(`视频 ${file.name} 超过 100MB 限制`);
-        return;
+    if (selectedVideoModel === 'seedance-2.0') {
+        const totalFiles = referenceImages.length + referenceVideos.length + referenceAudios.length + files.length;
+        if (totalFiles > 12) { setError('文件总数不能超过 12 个'); return; }
+        if (referenceVideos.length + files.length > 3) { setError('视频最多上传 3 个'); return; }
+    } else {
+        if (referenceVideos.length + files.length > 1) { setError('当前模型仅支持 1 个视频'); return; }
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-        const result = reader.result as string;
-        const matches = result.match(/^data:(.+);base64,(.+)$/);
-        if (matches) {
-            const newVideo: ReferenceImage = { id: generateUUID(), mimeType: matches[1], data: matches[2] };
-            setReferenceVideo(newVideo);
+    let currentTotalDuration = referenceVideos.reduce((acc, v) => acc + (v.duration || 0), 0);
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.size > 100 * 1024 * 1024) {
+            setError(`视频 ${file.name} 超过 100MB 限制`);
+            continue;
         }
-    };
-    reader.readAsDataURL(file);
+
+        try {
+            const duration = await new Promise<number>((resolve, reject) => {
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                video.onloadedmetadata = () => {
+                    URL.revokeObjectURL(video.src);
+                    resolve(video.duration);
+                };
+                video.onerror = () => {
+                    URL.revokeObjectURL(video.src);
+                    reject(new Error('Load failed'));
+                };
+                video.src = URL.createObjectURL(file);
+            });
+
+            if (selectedVideoModel === 'seedance-2.0') {
+                if (currentTotalDuration + duration > 15) {
+                    setError(`视频总时长超过 15 秒 (当前: ${currentTotalDuration.toFixed(1)}s, 新增: ${duration.toFixed(1)}s)`);
+                    break;
+                }
+                currentTotalDuration += duration;
+            }
+
+            const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
+            if (matches) {
+                const newVideo: ReferenceImage = { id: generateUUID(), mimeType: matches[1], data: matches[2], duration };
+                setReferenceVideos(prev => [...prev, newVideo]);
+                setError(null);
+            }
+        } catch (err) {
+            setError(`无法读取视频文件 ${file.name}`);
+        }
+    }
+    e.target.value = '';
   };
   
-  const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-     // ... same as before
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/aac', 'audio/x-m4a'];
-    if (!validTypes.some(type => file.type.includes(type) || file.type.startsWith('audio/'))) {
-        setError('不支持的音频格式，请上传 MP3, WAV, M4A 或 AAC');
-        return;
-    }
-    
-    if (file.size > 5 * 1024 * 1024) {
-        setError('音频文件大小不能超过 5MB');
-        return;
+    if (selectedVideoModel === 'seedance-2.0') {
+        const totalFiles = referenceImages.length + referenceVideos.length + referenceAudios.length + files.length;
+        if (totalFiles > 12) { setError('文件总数不能超过 12 个'); return; }
+        if (referenceAudios.length + files.length > 3) { setError('音频最多上传 3 个'); return; }
+    } else {
+        if (referenceAudios.length + files.length > 1) { setError('当前模型仅支持 1 个音频'); return; }
     }
 
-    const url = URL.createObjectURL(file);
-    const audio = new Audio(url);
-    
-    audio.onloadedmetadata = () => {
-        const duration = audio.duration;
-        URL.revokeObjectURL(url);
+    let currentTotalDuration = referenceAudios.reduce((acc, a) => acc + (a.duration || 0), 0);
 
-        if (duration < 2 || duration > 60) {
-            setError('音频时长需在 2~60 秒之间');
-            return;
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/aac', 'audio/x-m4a'];
+        if (!validTypes.some(type => file.type.includes(type) || file.type.startsWith('audio/'))) {
+            setError(`不支持的音频格式 ${file.name}，请上传 MP3, WAV, M4A 或 AAC`);
+            continue;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+            setError(`音频文件 ${file.name} 大小不能超过 5MB`);
+            continue;
         }
 
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const result = reader.result as string;
-            const matches = result.match(/^data:(.+);base64,(.+)$/);
+        try {
+            const duration = await new Promise<number>((resolve, reject) => {
+                const audio = new Audio(URL.createObjectURL(file));
+                audio.onloadedmetadata = () => {
+                    URL.revokeObjectURL(audio.src);
+                    resolve(audio.duration);
+                };
+                audio.onerror = () => {
+                    URL.revokeObjectURL(audio.src);
+                    reject(new Error('Load failed'));
+                };
+            });
+
+            if (selectedVideoModel === 'seedance-2.0') {
+                if (currentTotalDuration + duration > 15) {
+                    setError(`音频总时长超过 15 秒`);
+                    break;
+                }
+                currentTotalDuration += duration;
+            } else {
+                if (duration < 2 || duration > 60) {
+                    setError('音频时长需在 2~60 秒之间');
+                    continue;
+                }
+            }
+
+            const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
+            const matches = dataUrl.match(/^data:(.+);base64,(.+)$/);
             if (matches) {
-                setReferenceAudio({ 
+                setReferenceAudios(prev => [...prev, { 
                     id: generateUUID(), 
                     mimeType: matches[1], 
                     data: matches[2],
                     name: file.name,
                     duration: duration
-                });
+                }]);
                 setError(null);
             }
-        };
-        reader.readAsDataURL(file);
-    };
-    audio.onerror = () => {
-        setError('无法读取音频文件');
-        URL.revokeObjectURL(url);
+        } catch (err) {
+             setError(`无法读取音频文件 ${file.name}`);
+        }
     }
     e.target.value = '';
   };
 
   const removeReferenceImage = (id: string) => setReferenceImages(prev => prev.filter(img => img.id !== id));
-  const removeReferenceAudio = () => setReferenceAudio(null);
+  const removeReferenceVideo = (id: string) => setReferenceVideos(prev => prev.filter(v => v.id !== id));
+  const removeReferenceAudio = (id: string) => setReferenceAudios(prev => prev.filter(a => a.id !== id));
 
   const optimizePrompt = async () => {
      // ... same as before
@@ -2237,8 +2313,8 @@ RoleName必须严格对应用户输入中的角色名。`;
 
     const tSyncAudio = overrideConfig?.isSyncAudio ?? isSyncAudio;
     const tRefs = overrideConfig?.referenceImages ?? referenceImages;
-    const tRefVideo = overrideConfig?.referenceVideo ?? referenceVideo;
-    const tRefAudio = overrideConfig?.referenceAudio ?? referenceAudio;
+    const tRefVideos = overrideConfig?.referenceVideos ?? referenceVideos;
+    const tRefAudios = overrideConfig?.referenceAudios ?? referenceAudios;
     const tKlingOrientation = overrideConfig?.klingOrientation ?? klingOrientation;
     const tKlingKeepSound = overrideConfig?.klingKeepSound ?? klingKeepSound;
     const tKlingDubVol = overrideConfig?.klingDubVol ?? klingDubVol;
@@ -2251,7 +2327,7 @@ RoleName必须严格对应用户输入中的角色名。`;
         durationText: tModelId === 'seedance-2.0' ? `${tSeedanceDuration}s` : `${(modelDef!.options[tOptIdx] as any).s === 'AUTO' ? 'Auto' : (modelDef!.options[tOptIdx] as any).s + 's'}`,
         genTimeLabel: '生成中...',
         timestamp: startTime, status: 'loading',
-        config: { modelId: tModelId, videoRatio: tRatio, videoOptionIdx: tOptIdx, prompt: tPrompt, referenceImages: [...tRefs], referenceVideo: tRefVideo ? {...tRefVideo} : null, referenceAudio: tRefAudio ? {...tRefAudio} : null, type: 'video', isKlingMode: isKlingModel, isSyncAudio: tSyncAudio, klingOrientation: tKlingOrientation, klingKeepSound: tKlingKeepSound, klingDubVol: tKlingDubVol, klingSrcVol: tKlingSrcVol, seedanceDuration: tSeedanceDuration }
+        config: { modelId: tModelId, videoRatio: tRatio, videoOptionIdx: tOptIdx, prompt: tPrompt, referenceImages: [...tRefs], referenceVideos: [...tRefVideos], referenceAudios: [...tRefAudios], type: 'video', isKlingMode: isKlingModel, isSyncAudio: tSyncAudio, klingOrientation: tKlingOrientation, klingKeepSound: tKlingKeepSound, klingDubVol: tKlingDubVol, klingSrcVol: tKlingSrcVol, seedanceDuration: tSeedanceDuration }
       });
     }
     setGeneratedAssets(prev => [...placeholders, ...prev]);
@@ -2266,7 +2342,7 @@ RoleName必须严格对应用户输入中的角色名。`;
             
             if (apiModelId === 'kling-motion-control') {
                 if (tRefs.length === 0) throw new Error("请上传一张参考图片 (Image Required)");
-                if (!tRefVideo) throw new Error("请上传参考视频 (Video Required)");
+                if (tRefVideos.length === 0) throw new Error("请上传参考视频 (Video Required)");
 
                 const durationObj = modelDef!.options[tOptIdx];
                 const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
@@ -2284,10 +2360,10 @@ RoleName必须严格对应用户输入中的角色名。`;
                     payload.image = tRefs[0].data;
                 }
 
-                if (tRefVideo.data.startsWith('http')) {
-                    payload.video_url = tRefVideo.data;
+                if (tRefVideos[0].data.startsWith('http')) {
+                    payload.video_url = tRefVideos[0].data;
                 } else {
-                    payload.video = tRefVideo.data;
+                    payload.video = tRefVideos[0].data;
                 }
 
                 response = await fetch(`${config.baseUrl}/kling/v1/videos/motion-control`, {
@@ -2312,13 +2388,13 @@ RoleName必须严格对应用户输入中的角色名。`;
 
             if (apiModelId === 'kling-avatar-image2video') {
                 if (tRefs.length === 0) throw new Error("请上传一张人像参考图");
-                if (!tRefAudio) throw new Error("请上传驱动音频 (MP3/WAV/M4A/AAC, 2-60s)");
+                if (tRefAudios.length === 0) throw new Error("请上传驱动音频 (MP3/WAV/M4A/AAC, 2-60s)");
                 
                 const durationObj = modelDef!.options[tOptIdx];
                 const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
                 
                 const payload: any = {
-                    sound_file: tRefAudio.data,
+                    sound_file: tRefAudios[0].data,
                     prompt: tPrompt || "",
                     mode: mode,
                     callback_url: "",
@@ -2409,9 +2485,37 @@ RoleName必须严格对应用户输入中的角色名。`;
                          } else {
                              blob = base64ToBlob(img.data, img.mimeType);
                          }
-                         if (blob) formData.append('input_reference', blob, `reference_${i}.png`);
+                         if (blob) formData.append('input_reference', blob, `图片 ${i+1}.png`);
                     }
                 }
+
+                if (apiModelId === 'seedance-2.0') {
+                    if (tRefVideos && tRefVideos.length > 0) {
+                        for (let i = 0; i < tRefVideos.length; i++) {
+                             const vid = tRefVideos[i];
+                             let blob: Blob | null = null;
+                             if (vid.data.startsWith('http')) {
+                                 blob = await urlToBlob(vid.data);
+                             } else {
+                                 blob = base64ToBlob(vid.data, vid.mimeType);
+                             }
+                             if (blob) formData.append('input_reference', blob, `视频 ${i+1}.mp4`);
+                        }
+                    }
+                    if (tRefAudios && tRefAudios.length > 0) {
+                        for (let i = 0; i < tRefAudios.length; i++) {
+                             const aud = tRefAudios[i];
+                             let blob: Blob | null = null;
+                             if (aud.data.startsWith('http')) {
+                                 blob = await urlToBlob(aud.data);
+                             } else {
+                                 blob = base64ToBlob(aud.data, aud.mimeType);
+                             }
+                             if (blob) formData.append('input_reference', blob, `音频 ${i+1}.mp3`);
+                        }
+                    }
+                }
+
                 response = await fetch(`${config.baseUrl}/v1/videos`, { method: 'POST', headers: { 'Authorization': `Bearer ${key}` }, body: formData });
             }
             
@@ -2792,8 +2896,16 @@ RoleName必须严格对应用户输入中的角色名。`;
      if (asset.config) {
         setPrompt(asset.config.prompt);
         setReferenceImages(asset.config.referenceImages || []);
-        if (asset.config.referenceVideo) setReferenceVideo(asset.config.referenceVideo);
-        if (asset.config.referenceAudio) setReferenceAudio(asset.config.referenceAudio);
+        if (asset.config.referenceVideos) {
+            setReferenceVideos(asset.config.referenceVideos);
+        } else if (asset.config.referenceVideo) {
+            setReferenceVideos([asset.config.referenceVideo]);
+        }
+        if (asset.config.referenceAudios) {
+            setReferenceAudios(asset.config.referenceAudios);
+        } else if (asset.config.referenceAudio) {
+            setReferenceAudios([asset.config.referenceAudio]);
+        }
         if (asset.type === 'image') {
            setMainCategory('image');
            setSelectedModel(asset.config.modelId);
@@ -3175,7 +3287,7 @@ RoleName必须严格对应用户输入中的角色名。`;
           {!isAudioMode && (
           <section className="space-y-3">
              {/* ... (Upload sections kept same) ... */}
-              <div className={`p-3 bg-brand-cream border border-black brutalist-shadow-sm ${referenceImages.length > 0 || referenceVideo || referenceAudio ? 'solid-box-green' : 'solid-box-purple'}`}>
+              <div className={`p-3 bg-brand-cream border border-black brutalist-shadow-sm ${referenceImages.length > 0 || referenceVideos.length > 0 || referenceAudios.length > 0 ? 'solid-box-green' : 'solid-box-purple'}`}>
                   {isVideoMode && selectedVideoModel === 'kling-motion-control' ? (
                       // ... (Motion control content same)
                       <div className="space-y-4">
@@ -3185,7 +3297,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                             </h3>
                             <div className="flex gap-2">
                                 {referenceImages.length > 0 && <span className="text-brand-green text-xs font-normal flex items-center gap-1"><Check className="w-3 h-3"/> IMAGE READY</span>}
-                                {referenceVideo && <span className="text-brand-green text-xs font-normal flex items-center gap-1"><Check className="w-3 h-3"/> VIDEO READY</span>}
+                                {referenceVideos.length > 0 && <span className="text-brand-green text-xs font-normal flex items-center gap-1"><Check className="w-3 h-3"/> VIDEO READY</span>}
                             </div>
                         </div>
                         
@@ -3225,27 +3337,27 @@ RoleName必须严格对应用户输入中的角色名。`;
                             <label className={`${labelClass} flex items-center gap-1`}>
                                 <Video className="w-3 h-3"/> 动作视频 (MOTION VIDEO)
                             </label>
-                            {referenceVideo ? (
+                            {referenceVideos.length > 0 ? (
                                 <div className="relative w-full border border-black bg-white brutalist-shadow-sm p-2 group">
                                      <div className="flex items-center justify-between mb-2">
                                          <span className="text-xs font-normal truncate max-w-[200px] bg-slate-100 px-2 py-0.5 border border-black/20 rounded-sm">VIDEO REFERENCE</span>
-                                         <button onClick={() => setReferenceVideo(null)} className="bg-brand-red text-white border border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform">
+                                         <button onClick={() => setReferenceVideos([])} className="bg-brand-red text-white border border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform">
                                             <X className="w-3 h-3"/>
                                          </button>
                                      </div>
                                      <div className="relative bg-black border border-black h-32 flex items-center justify-center overflow-hidden">
                                         <video 
-                                            src={referenceVideo.data.startsWith('http') ? referenceVideo.data : `data:${referenceVideo.mimeType};base64,${referenceVideo.data}`} 
+                                            src={referenceVideos[0].data.startsWith('http') ? referenceVideos[0].data : `data:${referenceVideos[0].mimeType};base64,${referenceVideos[0].data}`} 
                                             className="w-full h-full object-contain" 
                                             controls
                                         />
-                                        {referenceVideo.uploadStatus === 'uploading' && (
+                                        {referenceVideos[0].uploadStatus === 'uploading' && (
                                             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-20">
                                                 <Loader2 className="w-8 h-8 animate-spin mb-2"/>
                                                 <span className="text-xs font-normal uppercase">UPLOADING...</span>
                                             </div>
                                         )}
-                                        {referenceVideo.uploadStatus === 'failed' && (
+                                        {referenceVideos[0].uploadStatus === 'failed' && (
                                             <div className="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center text-white z-20">
                                                 <X className="w-8 h-8 mb-2"/>
                                                 <span className="text-xs font-normal uppercase">UPLOAD FAILED</span>
@@ -3308,7 +3420,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                       <>
                           <div className="flex justify-between items-center mb-1">
                               <h3 className={labelClass}>
-                                  {`参考底稿 (可选) ${!isVideoMode ? '' : `(限${selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? '1' : ((selectedVideoModel === 'veo_3_1-fast-components-4K' ? '3' : (selectedVideoModel.startsWith('veo')) ? '2' : '1'))}张)`}`}
+                                  {isVideoMode && selectedVideoModel === 'seedance-2.0' ? '参考图片（限9张）' : `参考底稿 (可选) ${!isVideoMode ? '' : `(限${selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? '1' : ((selectedVideoModel === 'veo_3_1-fast-components-4K' ? '3' : (selectedVideoModel.startsWith('veo')) ? '2' : '1'))}张)`}`}
                               </h3>
                               {(referenceImages.length > 0) && <span className="text-brand-green text-xs font-normal flex items-center gap-1"><Check className="w-3 h-3"/> READY</span>}
                           </div>
@@ -3324,7 +3436,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                                                 onDoubleClick={() => setPreviewRefImage(img)}>
                                             <img src={img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`} className="w-full h-full object-cover" />
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] text-center uppercase py-0.5">
-                                                {(isVideoMode && selectedVideoModel.startsWith('veo') && selectedVideoModel !== 'veo_3_1-fast-components-4K') ? (idx === 0 ? '首帧' : '尾帧') : 'REF'}
+                                                {(isVideoMode && selectedVideoModel === 'seedance-2.0') ? `图片 ${idx + 1}` : (isVideoMode && selectedVideoModel.startsWith('veo') && selectedVideoModel !== 'veo_3_1-fast-components-4K') ? (idx === 0 ? '首帧' : '尾帧') : 'REF'}
                                             </div>
                                             <button onClick={(e) => { e.stopPropagation(); removeReferenceImage(img.id); }} 
                                                     className="absolute -top-2.5 -right-2.5 bg-brand-red text-white border border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform brutalist-shadow-sm z-10">
@@ -3332,44 +3444,118 @@ RoleName必须严格对应用户输入中的角色名。`;
                                             </button>
                                             </div>
                                         ))}
-                                        {((!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel === 'veo_3_1-fast-components-4K' ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1)))) && (
+                                        {((!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < (selectedVideoModel === 'seedance-2.0' ? 9 : (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel === 'veo_3_1-fast-components-4K' ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1))))) && (
                                             <label className="w-24 h-24 border border-black flex items-center justify-center cursor-pointer bg-white brutalist-shadow-sm">
-                                            <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
+                                            <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0'} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
                                             </label>
                                         )}
                                     </div>
                                 ) : (
                                     <label className="w-full py-2.5 flex flex-col items-center justify-center bg-brand-purple text-white border border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-sm hover:translate-y-1 hover:shadow-none transition-all">
-                                        <input type="file" multiple={!isVideoMode} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
+                                        <input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0'} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
                                         {isVideoMode && selectedVideoModel === 'kling-motion-control' ? "添加人物图" : "上传图片/UPLOAD"}
                                     </label>
                                 )
                             )}
                             
                             {/* ... (Video warning and audio upload same) */}
+                            {/* Videos Section for Seedance 2.0 */}
+                            {isVideoMode && selectedVideoModel === 'seedance-2.0' && (
+                                <div className="mt-2 pt-2 border-t border-black/10">
+                                    <label className={labelClass}>参考视频（限3个，总时长≤ 15秒） {referenceVideos.length > 0 && <span className="text-brand-green text-[10px]"><Check className="inline w-3 h-3"/> {referenceVideos.length}/3</span>}</label>
+                                    {referenceVideos.length > 0 ? (
+                                        <div className="flex gap-3 overflow-x-auto pb-1.5 pt-2 pr-4 pl-1">
+                                            {referenceVideos.map((vid, idx) => (
+                                                <div key={vid.id} className="relative w-32 h-24 border border-black bg-white brutalist-shadow-sm flex-shrink-0 cursor-pointer group">
+                                                    <video src={vid.data.startsWith('http') ? vid.data : `data:${vid.mimeType};base64,${vid.data}`} className="w-full h-full object-cover" />
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] text-center uppercase py-0.5">
+                                                        视频 {idx + 1}
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); removeReferenceVideo(vid.id); }} 
+                                                            className="absolute -top-2.5 -right-2.5 bg-brand-red text-white border border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform brutalist-shadow-sm z-10">
+                                                        <X className="w-4 h-4"/>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {referenceVideos.length < 3 && (
+                                                <label className="w-24 h-24 border border-black flex items-center justify-center cursor-pointer bg-white brutalist-shadow-sm flex-shrink-0">
+                                                    <Plus className="w-6 h-6" /><input type="file" multiple accept="video/mp4,video/quicktime" className="hidden" onChange={handleVideoUpload} />
+                                                </label>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <label className="mt-2 w-full py-2.5 flex flex-col items-center justify-center bg-brand-blue text-white border border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-sm hover:translate-y-1 hover:shadow-none transition-all">
+                                            <input type="file" multiple accept="video/mp4,video/quicktime" className="hidden" onChange={handleVideoUpload} />
+                                            上传视频/UPLOAD VIDEO
+                                        </label>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Audios Section for Seedance 2.0 */}
+                            {isVideoMode && selectedVideoModel === 'seedance-2.0' && (
+                                <div className="mt-2 pt-2 border-t border-black/10">
+                                    <label className={labelClass}>参考音频（限3个，总时长 ≤ 15 秒） {referenceAudios.length > 0 && <span className="text-brand-green text-[10px]"><Check className="inline w-3 h-3"/> {referenceAudios.length}/3</span>}</label>
+                                    {referenceAudios.length > 0 ? (
+                                        <div className="flex flex-col gap-2 mt-2">
+                                            {referenceAudios.map((aud, idx) => (
+                                                <div key={aud.id} className="relative p-2 bg-white border border-black brutalist-shadow-sm flex items-center gap-2">
+                                                    <div className="w-8 h-8 bg-brand-yellow flex items-center justify-center border border-black shrink-0">
+                                                        <Music className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-bold truncate">音频 {idx + 1}</div>
+                                                        <div className="text-[10px] text-slate-500 truncate">{aud.name} ({Math.round(aud.duration)}s)</div>
+                                                    </div>
+                                                    <button onClick={() => removeReferenceAudio(aud.id)} className="bg-brand-red text-white p-1 border border-black hover:scale-110 transition-transform shrink-0">
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {referenceAudios.length < 3 && (
+                                                <label className="w-full py-2 flex flex-col items-center justify-center bg-brand-blue text-white border border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-xs hover:translate-y-1 hover:shadow-none transition-all">
+                                                    <input type="file" multiple accept="audio/*" className="hidden" onChange={handleAudioUpload} />
+                                                    <Plus className="w-4 h-4 inline mr-1"/> 添加音频/ADD AUDIO
+                                                </label>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <label className="mt-2 w-full py-2.5 flex flex-col items-center justify-center bg-brand-blue text-white border border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-sm hover:translate-y-1 hover:shadow-none transition-all">
+                                            <input type="file" multiple accept="audio/*" className="hidden" onChange={handleAudioUpload} />
+                                            上传音频/UPLOAD AUDIO
+                                        </label>
+                                    )}
+                                </div>
+                            )}
+                            
                             {isVideoMode && selectedVideoModel !== 'grok-video-3' && selectedVideoModel !== 'kling-avatar-image2video' && (
                                 <div className="text-xs text-brand-red font-normal mt-1">
-                                    Sora2请勿上传真人，Veo请勿上传未成年
+                                    {(() => {
+                                        if (selectedVideoModel === 'seedance-2.0') return '请勿上传真人，混合上传文件总数≤12个';
+                                        if (selectedVideoModel === 'sora-2-all' || selectedVideoModel === 'sora-2-pro-all') return '请勿上传真人';
+                                        if (selectedVideoModel.startsWith('veo')) return '请勿上传未成年';
+                                        return 'Sora2请勿上传真人，Veo请勿上传未成年';
+                                    })()}
                                 </div>
                             )}
                             
                             {(isVideoMode && selectedVideoModel === 'kling-avatar-image2video') && (
                                 <div className={`mt-2 pt-2 border-t border-black/10`}>
-                                    <label className={labelClass}>驱动音频 (AUDIO) {referenceAudio && <span className="text-brand-green text-[10px]"><Check className="inline w-3 h-3"/></span>}</label>
-                                    {referenceAudio ? (
+                                    <label className={labelClass}>驱动音频 (AUDIO) {referenceAudios.length > 0 && <span className="text-brand-green text-[10px]"><Check className="inline w-3 h-3"/></span>}</label>
+                                    {referenceAudios.length > 0 ? (
                                         <div className="relative mt-2 p-2 bg-white border border-black brutalist-shadow-sm flex flex-col gap-2">
                                             <div className="flex items-center gap-2 w-full">
                                                 <div className="w-8 h-8 bg-brand-yellow flex items-center justify-center border border-black shrink-0">
                                                     <Music className="w-4 h-4" />
                                                 </div>
-                                                <span className="text-xs font-normal truncate flex-1">{referenceAudio.name}</span>
-                                                <button onClick={removeReferenceAudio} className="bg-brand-red text-white p-1 border border-black hover:scale-110 transition-transform shrink-0">
+                                                <span className="text-xs font-normal truncate flex-1">{referenceAudios[0].name}</span>
+                                                <button onClick={() => setReferenceAudios([])} className="bg-brand-red text-white p-1 border border-black hover:scale-110 transition-transform shrink-0">
                                                     <X className="w-3 h-3" />
                                                 </button>
                                             </div>
-                                            <audio controls src={`data:${referenceAudio.mimeType};base64,${referenceAudio.data}`} className="w-full h-8 mt-2" />
+                                            <audio controls src={`data:${referenceAudios[0].mimeType};base64,${referenceAudios[0].data}`} className="w-full h-8 mt-2" />
                                             <div className="flex justify-between text-[10px] text-slate-400">
-                                                <span>{Math.round(referenceAudio.duration)}s</span>
+                                                <span>{Math.round(referenceAudios[0].duration)}s</span>
                                             </div>
                                         </div>
                                     ) : (
