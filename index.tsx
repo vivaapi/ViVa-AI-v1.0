@@ -13,7 +13,7 @@ import {
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
   ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown,
-  MegaphoneOff
+  MegaphoneOff, Link, Globe
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -1162,7 +1162,9 @@ const App = () => {
   const [resourceItems, setResourceItems] = useState([
     { id: 'tts', name: '文字转语音', desc: '免费TTS，多语言支持，无限次生成。', url: 'https://ttsmaker.cn/', icon: 'Mic' },
     { id: 'img-conv', name: '图片格式转换', desc: '支持JPG, PNG, BMP, WEBP等多种格式互转。', url: 'https://www.xunjietupian.com/', icon: 'ImageIcon' },
-    { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' }
+    { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' },
+    { id: 'img-url', name: '图片转URL链接', desc: '快速将图片转换为在线URL链接。', url: 'https://lsky.zhongzhuan.chat', icon: 'Link' },
+    { id: 'vpn', name: '科学上网（付费）', desc: '高速稳定的网络加速服务。', url: 'https://cm.caomeiyun.top/#/register?code=iPB4QjfQ', icon: 'Globe' }
   ]);
   const [draggedResourceIdx, setDraggedResourceIdx] = useState<number | null>(null);
 
@@ -3180,7 +3182,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                     </div>
 
                     {/* Resources Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                          {resourceItems.map((item, idx) => (
                              <a 
                                 key={item.id}
@@ -3196,7 +3198,11 @@ RoleName必须严格对应用户输入中的角色名。`;
                                  <div className="p-6 flex-1 space-y-4">
                                      <div className="flex justify-between items-start">
                                          <div className="w-12 h-12 bg-brand-yellow border border-black flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-300">
-                                             {item.icon === 'Mic' ? <Mic className="w-6 h-6" /> : item.icon === 'Monitor' ? <Monitor className="w-6 h-6" /> : <ImageIcon className="w-6 h-6" />}
+                                             {item.icon === 'Mic' ? <Mic className="w-6 h-6" /> : 
+                                              item.icon === 'Monitor' ? <Monitor className="w-6 h-6" /> : 
+                                              item.icon === 'Link' ? <Link className="w-6 h-6" /> :
+                                              item.icon === 'Globe' ? <Globe className="w-6 h-6" /> :
+                                              <ImageIcon className="w-6 h-6" />}
                                          </div>
                                          <div className="flex items-center gap-3">
                                              <ExternalLink className="w-5 h-5 text-brand-blue opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
