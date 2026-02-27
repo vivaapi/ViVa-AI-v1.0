@@ -31,6 +31,8 @@ type MainCategory = 'image' | 'video' | 'proxy' | 'audio' | 'chat' | 'announceme
 interface AppConfig {
   baseUrl: string;
   apiKey: string;
+  apiKey2?: string;
+  selectedKeyIndex?: number;
 }
 
 interface GeneratedAsset {
@@ -202,25 +204,15 @@ const MODEL_CAPABILITIES: Record<string, { image: boolean; audio: boolean; video
 };
 
 const VIDEO_MODELS = [
-  {
-    id: 'seedance-2.0',
-    name: 'SEEDANCE 2.0待官方开放API',
-    desc: '高清/多比例',
-    supportedAspectRatios: ['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'],
-    options: [
-      { q: '标清' },
-      { q: '高清' }
-    ]
-  },
   { 
     id: 'sora-2', 
     name: 'Sora-2', 
     desc: '标清视频', 
     supportedAspectRatios: ['9:16', '16:9'],
     options: [
-      {s: '4', q: '高清'}, 
-      {s: '8', q: '高清'},
-      {s: '12', q: '高清'}
+      {s: '4', q: '标清'}, 
+      {s: '8', q: '标清'},
+      {s: '12', q: '标清'}
     ] 
   },
   { 
@@ -235,21 +227,36 @@ const VIDEO_MODELS = [
   },
   { 
     id: 'sora-2-vip-all', 
-    name: 'Sora-2-VIP-All', 
+    name: 'Sora-2-vip-all', 
     desc: '标清视频', 
     supportedAspectRatios: ['9:16', '16:9'],
     options: [
       {s: '10', q: '标清'}
     ] 
   },
-  { 
-    id: 'veo_3_1-fast', 
-    name: 'VEO 3.1 FAST', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
+  { id: 'veo_3_1-fast', name: 'veo_3_1-fast', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo_3_1-fast-4K', name: 'veo_3_1-fast-4K', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo_3_1-fast-components-4K', name: 'veo_3_1-fast-components-4K', desc: '4K/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo_3_1', name: 'veo_3_1', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo_3_1-4K', name: 'veo_3_1-4K', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo_3_1-components', name: 'veo_3_1-components', desc: '标清/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo_3_1-components-4K', name: 'veo_3_1-components-4K', desc: '4K/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo3.1-fast', name: 'veo3.1-fast', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo3.1-fast-components', name: 'veo3.1-fast-components', desc: '标清/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo3.1', name: 'veo3.1', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo3.1-4k', name: 'veo3.1-4k', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo3.1-components', name: 'veo3.1-components', desc: '标清/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo3.1-components-4k', name: 'veo3.1-components-4k', desc: '4K/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  { id: 'veo3.1-pro-4k', name: 'veo3.1-pro-4k', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
+  {
+    id: 'seedance-2.0',
+    name: 'SEEDANCE 2.0待官方开放API',
+    desc: '高清/多比例',
+    supportedAspectRatios: ['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'],
     options: [
-      {s: '8', q: '标清'}
-    ] 
+      { q: '标清' },
+      { q: '高清' }
+    ]
   },
   {
     id: 'grok-video-3',
@@ -261,24 +268,6 @@ const VIDEO_MODELS = [
       {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'},
       {s: '15', q: '标清', modelIdOverride: 'grok-video-3-15s'},
       {s: '15', q: '高清', modelIdOverride: 'grok-video-3-15s'}
-    ] 
-  },
-  { 
-    id: 'veo_3_1-fast-4K', 
-    name: 'VEO 3.1 FAST 4K', 
-    desc: '4K/高清/音视', 
-    supportedAspectRatios: ['16:9', '9:16'],
-    options: [
-      {s: '8', q: '4K'}
-    ] 
-  },
-  { 
-    id: 'veo_3_1-fast-components-4K', 
-    name: 'VEO 3.1 多图融合 4K', 
-    desc: '3垫图/4K', 
-    supportedAspectRatios: ['16:9', '9:16'],
-    options: [
-      {s: '8', q: '4K'}
     ] 
   },
   { 
@@ -308,15 +297,6 @@ const VIDEO_MODELS = [
     options: [
       {s: '15', q: '高清'}, 
       {s: '25', q: '标清'}
-    ] 
-  },
-  { 
-    id: 'veo3.1-pro', 
-    name: 'VEO 3.1 PRO', 
-    desc: '高清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '8', q: '高清'}
     ] 
   }
 ];
@@ -673,7 +653,7 @@ const ChatView = ({
     const generateResponse = async (history: ChatMessage[]) => {
         setIsLoading(true);
         try {
-            const key = (config.apiKey || (typeof process !== 'undefined' && process.env && process.env.API_KEY ? process.env.API_KEY : '')).trim();
+            const key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || (typeof process !== 'undefined' && process.env && process.env.API_KEY ? process.env.API_KEY : '')).trim();
             if (!key) throw new Error("请先设置API Key");
 
             // Context Clearing Logic: Find the last divider and only send messages after it
@@ -1046,22 +1026,32 @@ const PRICE_DATA = [
     category: '视频创作',
     items: [
       { m: 'Sora-2-all', p: 'default分组 0.14元/条，sora-vip分组 0.56元/条' },
-      { m: 'Sora-2-VIP-All', p: 'sora-vip分组 1.75元/条' },
-      { m: 'Sora 2', p: <div className="flex flex-col items-end text-right">
-        <div>官转0.21元/秒</div>
-        <div>官转Open AI0.42元/秒</div>
-        <div>优质官转Open AI0.56元/秒</div>
+      { m: 'Sora-2-vip-all', p: 'sora-vip分组 1.75元/条' },
+      { m: 'Sora-2', p: <div className="flex flex-col items-end text-right">
+        <div>官转 0.21元/秒</div>
+        <div>官转Open AI分组 0.42元/秒</div>
+        <div>优质官转Open AI分组 0.56元/秒</div>
       </div> },
-      { m: 'VEO 3.1 Fast', p: '0.126元/条' },
+      { m: 'Sora-2-Pro-All', p: '2.52元/条' },
+      { m: 'veo_3_1-fast', p: '0.18元/条' },
+      { m: 'veo_3_1-fast-4K', p: '0.18元/条' },
+      { m: 'veo_3_1-fast-components-4K', p: '0.36元/条' },
+      { m: 'veo_3_1', p: '0.31元/条' },
+      { m: 'veo_3_1-4K', p: '0.36元/条' },
+      { m: 'veo_3_1-components', p: '0.31元/条' },
+      { m: 'veo_3_1-components-4K', p: '0.36元/条' },
+      { m: 'veo3.1-fast', p: '0.49元/条' },
+      { m: 'veo3.1-fast-components', p: '0.11元/条' },
+      { m: 'veo3.1', p: '0.49元/条' },
+      { m: 'veo3.1-4k', p: '0.70元/条' },
+      { m: 'veo3.1-components', p: '0.29元/条' },
+      { m: 'veo3.1-components-4k', p: '0.70元/条' },
+      { m: 'veo3.1-pro-4k', p: '2.45元/条' },
       { m: 'Grok Video 3', p: '6S 0.14元/条，10S 0.28元/条，15S 0.35元/条' },
-      { m: 'VEO 3.1 Fast 4K', p: '0.181元/条' },
-      { m: 'VEO 3.1 Mix 4K (多图融合)', p: '0.361元/条' },
       { m: 'KLING Control Std (动作转移)', p: '0.595元/秒' },
       { m: 'KLING Control Pro (动作转移)', p: '0.952元/秒' },
       { m: 'KLING Avatar Std (数字人)', p: '0.476元/秒' },
       { m: 'KLING Avatar Pro (数字人)', p: '0.952元/秒' },
-      { m: 'Sora 2 Pro', p: '2.52元/条' },
-      { m: 'VEO 3.1 Pro', p: '2.45元/条' },
     ]
   },
   {
@@ -1074,7 +1064,7 @@ const PRICE_DATA = [
 
 const PriceView = () => {
     const [expanded, setExpanded] = useState<Record<number, boolean>>(
-        PRICE_DATA.reduce((acc, _, idx) => ({...acc, [idx]: true}), {})
+        PRICE_DATA.reduce((acc, cat, idx) => ({...acc, [idx]: cat.category === '图片创作'}), {})
     );
 
     const toggle = (idx: number) => {
@@ -1098,7 +1088,7 @@ const PriceView = () => {
                   <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded[idx] ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                       <div className="divide-y divide-black/5 bg-white">
                         {cat.items.map((item, iidx) => (
-                          <div key={iidx} className="flex justify-between items-center px-6 py-4 hover:bg-brand-cream transition-colors group">
+                          <div key={iidx} className="flex justify-between items-center px-6 py-2 hover:bg-brand-cream transition-colors group">
                             <span className="text-lg font-medium text-slate-800 group-hover:text-black">{item.m}</span>
                             <span className="text-base font-medium text-black">
                                 {item.p}
@@ -1297,7 +1287,7 @@ URL=${window.location.href}
       } else {
           if (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') {
               max = 1;
-          } else if (selectedVideoModel === 'veo_3_1-fast-components-4K') {
+          } else if (selectedVideoModel.includes('components')) {
               max = 3;
           } else {
               max = selectedVideoModel.startsWith('veo') ? 2 : 1;
@@ -1419,7 +1409,7 @@ URL=${window.location.href}
 
   const startKlingImagePolling = (taskId: string, assetId: string, startTime: number) => {
     const interval = setInterval(async () => {
-        let key = (configRef.current.apiKey || safeEnvKey).trim();
+        let key = ((configRef.current.selectedKeyIndex === 1 ? configRef.current.apiKey2 : configRef.current.apiKey) || safeEnvKey).trim();
         if (!key || !taskId) { clearInterval(interval); return; }
         try {
             const url = `${configRef.current.baseUrl}/kling/v1/images/omni-image/${taskId}`;
@@ -1468,7 +1458,7 @@ URL=${window.location.href}
 
   const startKlingVideoPolling = (taskId: string, assetId: string, startTime: number, endpointType: string) => {
     const interval = setInterval(async () => {
-        let key = (configRef.current.apiKey || safeEnvKey).trim();
+        let key = ((configRef.current.selectedKeyIndex === 1 ? configRef.current.apiKey2 : configRef.current.apiKey) || safeEnvKey).trim();
         if (!key || !taskId) { clearInterval(interval); return; }
         try {
             const url = `${configRef.current.baseUrl}/kling/v1/videos/${endpointType}/${taskId}`;
@@ -1516,10 +1506,10 @@ URL=${window.location.href}
 
   const startVideoPolling = (taskId: string, assetId: string, startTime: number, modelId: string) => {
     const interval = setInterval(async () => {
-        let key = (configRef.current.apiKey || safeEnvKey).trim();
+        let key = ((configRef.current.selectedKeyIndex === 1 ? configRef.current.apiKey2 : configRef.current.apiKey) || safeEnvKey).trim();
         if (!key || !taskId) { clearInterval(interval); return; }
         try {
-            const isVeoGrokJimeng = (modelId.startsWith('veo') && !modelId.includes('4K')) || modelId.startsWith('grok') || modelId.startsWith('jimeng') || modelId.startsWith('kling');
+            const isVeoGrokJimeng = modelId.startsWith('veo3.1') || modelId.startsWith('grok') || modelId.startsWith('jimeng') || modelId.startsWith('kling');
             const url = isVeoGrokJimeng ? `${configRef.current.baseUrl}/v1/video/query?id=${taskId}` : `${configRef.current.baseUrl}/v1/videos/${taskId}`;
             
             const res = await fetch(url, { headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' } });
@@ -1598,7 +1588,7 @@ URL=${window.location.href}
     } else {
         if (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') {
             max = 1;
-        } else if (selectedVideoModel === 'veo_3_1-fast-components-4K') {
+        } else if (selectedVideoModel.includes('components')) {
             max = 3;
         } else if (selectedVideoModel === 'seedance-2.0') {
             max = 9;
@@ -1796,7 +1786,7 @@ URL=${window.location.href}
      // ... same as before
      if (!prompt.trim() && referenceImages.length === 0) return;
      
-     let key = (config.apiKey || safeEnvKey).trim();
+     let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
      if (!key) { setError("请先设置API Key"); return; }
      
      setIsOptimizing(true);
@@ -2188,7 +2178,7 @@ RoleName必须严格对应用户输入中的角色名。`;
 
     if (!tPrompt) { setError("请输入文本"); return; }
     
-    let key = (config.apiKey || safeEnvKey).trim();
+    let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
     if (!key) { setError("请先设置API Key"); return; }
 
     const placeholderId = generateUUID();
@@ -2310,7 +2300,7 @@ RoleName必须严格对应用户输入中的角色名。`;
         return; 
     }
     
-    let key = (config.apiKey || safeEnvKey).trim();
+    let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
     if (!key) { setError("请先设置API Key"); return; }
     
     const modelList = VIDEO_MODELS;
@@ -2366,7 +2356,7 @@ RoleName必须严格对应用户输入中的角色名。`;
     try {
         const createOne = async (pId: string) => {
             let response;
-            const isVeoModel = apiModelId.startsWith('veo') && !apiModelId.includes('4K');
+            const isVeoModel = apiModelId.startsWith('veo3.1');
             const isGrokModel = apiModelId.startsWith('grok');
             const isJimengModel = apiModelId.startsWith('jimeng');
             
@@ -2578,7 +2568,7 @@ RoleName必须严格对应用户输入中的角色名。`;
   const executeVideoRemix = async () => {
     // ... same as before
     if (!remixingAsset || !remixingAsset.taskId || !remixPrompt.trim()) return;
-    let key = (config.apiKey || safeEnvKey).trim();
+    let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
     if (!key) { setError("请先设置API Key"); return; }
     
     const newId = generateUUID();
@@ -2642,7 +2632,7 @@ RoleName必须严格对应用户输入中的角色名。`;
 
     const tPrompt = overrideConfig?.prompt ?? prompt;
     if (!tPrompt) { setError("请输入提示词"); return; }
-    let key = (config.apiKey || safeEnvKey).trim();
+    let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
     if (!key) { setError("请先设置API Key"); return; }
 
     const tModelId = overrideConfig?.modelId ?? selectedModel;
@@ -3454,7 +3444,16 @@ RoleName必须严格对应用户输入中的角色名。`;
                       <>
                           <div className="flex justify-between items-center mb-1">
                               <h3 className={labelClass}>
-                                  {isVideoMode && selectedVideoModel === 'seedance-2.0' ? '参考图片（限9张）' : `参考底稿 (可选) ${!isVideoMode ? '' : `(限${selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? '1' : ((selectedVideoModel === 'veo_3_1-fast-components-4K' ? '3' : (selectedVideoModel.startsWith('veo')) ? '2' : '1'))}张)`}`}
+                                  {(() => {
+                                      if (isVideoMode) {
+                                          if (selectedVideoModel === 'seedance-2.0') return '参考图片（限9张）';
+                                          if (selectedVideoModel.includes('components')) return '参考底稿（可选）多图融合';
+                                          if (selectedVideoModel.startsWith('veo')) return '参考底稿（可选）首尾帧';
+                                          const limit = (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') ? '1' : '1';
+                                          return `参考底稿 (可选) (限${limit}张)`;
+                                      }
+                                      return '参考底稿 (可选)';
+                                  })()}
                               </h3>
                               {(referenceImages.length > 0) && <span className="text-brand-green text-xs font-normal flex items-center gap-1"><Check className="w-3 h-3"/> READY</span>}
                           </div>
@@ -3470,7 +3469,15 @@ RoleName必须严格对应用户输入中的角色名。`;
                                                 onDoubleClick={() => setPreviewRefImage(img)}>
                                             <img src={img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`} className="w-full h-full object-cover" />
                                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] text-center uppercase py-0.5">
-                                                {(isVideoMode && selectedVideoModel === 'seedance-2.0') ? `图片 ${idx + 1}` : (isVideoMode && selectedVideoModel.startsWith('veo') && selectedVideoModel !== 'veo_3_1-fast-components-4K') ? (idx === 0 ? '首帧' : '尾帧') : 'REF'}
+                                                {(() => {
+                                                    if (isVideoMode) {
+                                                        if (selectedVideoModel.includes('components')) return `图${idx + 1}`;
+                                                        if (selectedVideoModel.startsWith('veo')) return idx === 0 ? '首帧' : '尾帧';
+                                                        if (selectedVideoModel === 'seedance-2.0') return `图${idx + 1}`;
+                                                        return 'REF';
+                                                    }
+                                                    return `图${idx + 1}`;
+                                                })()}
                                             </div>
                                             <button onClick={(e) => { e.stopPropagation(); removeReferenceImage(img.id); }} 
                                                     className="absolute -top-2.5 -right-2.5 bg-brand-red text-white border border-black w-6 h-6 flex items-center justify-center hover:scale-110 transition-transform brutalist-shadow-sm z-10">
@@ -3478,15 +3485,15 @@ RoleName必须严格对应用户输入中的角色名。`;
                                             </button>
                                             </div>
                                         ))}
-                                        {((!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < (selectedVideoModel === 'seedance-2.0' ? 9 : (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel === 'veo_3_1-fast-components-4K' ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1))))) && (
+                                        {((!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < (selectedVideoModel === 'seedance-2.0' ? 9 : (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel.includes('components') ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1))))) && (
                                             <label className="w-24 h-24 border border-black flex items-center justify-center cursor-pointer bg-white brutalist-shadow-sm">
-                                            <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0'} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
+                                            <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0' || selectedVideoModel.startsWith('veo')} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
                                             </label>
                                         )}
                                     </div>
                                 ) : (
                                     <label className="w-full py-2.5 flex flex-col items-center justify-center bg-brand-purple text-white border border-black brutalist-shadow-sm cursor-pointer font-normal uppercase text-sm hover:translate-y-1 hover:shadow-none transition-all">
-                                        <input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0'} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
+                                        <input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0' || selectedVideoModel.startsWith('veo')} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
                                         {isVideoMode && selectedVideoModel === 'kling-motion-control' ? "添加人物图" : "上传图片/UPLOAD"}
                                     </label>
                                 )
@@ -3566,7 +3573,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                                 <div className="text-xs text-brand-red font-normal mt-1">
                                     {(() => {
                                         if (selectedVideoModel === 'seedance-2.0') return '请勿上传真人，混合上传文件总数≤12个';
-                                        if (selectedVideoModel === 'sora-2-all' || selectedVideoModel === 'sora-2-pro-all') return '请勿上传真人';
+                                        if (selectedVideoModel === 'sora-2-all' || selectedVideoModel === 'sora-2-pro-all' || selectedVideoModel === 'sora-2' || selectedVideoModel === 'sora-2-vip-all') return '请勿上传真人';
                                         if (selectedVideoModel.startsWith('veo')) return '请勿上传未成年';
                                         return 'Sora2请勿上传真人，Veo请勿上传未成年';
                                     })()}
@@ -4236,17 +4243,45 @@ RoleName必须严格对应用户输入中的角色名。`;
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <label className="text-lg font-bold uppercase italic block">
                     API令牌 (KEY)
                 </label>
-                <input 
-                    type="password" 
-                    value={tempConfig.apiKey} 
-                    onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} 
-                    placeholder="请输入API令牌后使用"
-                    className="w-full h-14 px-4 border border-black text-xl font-normal font-mono outline-none focus:bg-brand-cream transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal" 
-                />
+                
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <input 
+                            type="radio" 
+                            checked={tempConfig.selectedKeyIndex !== 1} 
+                            onChange={() => setTempConfig({...tempConfig, selectedKeyIndex: 0})}
+                            className="w-5 h-5 accent-brand-blue cursor-pointer"
+                        />
+                        <input 
+                            type="password" 
+                            value={tempConfig.apiKey} 
+                            onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} 
+                            placeholder="令牌 1"
+                            className={`flex-1 h-12 px-4 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex !== 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <input 
+                            type="radio" 
+                            checked={tempConfig.selectedKeyIndex === 1} 
+                            onChange={() => setTempConfig({...tempConfig, selectedKeyIndex: 1})}
+                            className="w-5 h-5 accent-brand-blue cursor-pointer"
+                        />
+                        <input 
+                            type="password" 
+                            value={tempConfig.apiKey2 || ''} 
+                            onChange={e => setTempConfig({...tempConfig, apiKey2: e.target.value})} 
+                            placeholder="令牌 2"
+                            className={`flex-1 h-12 px-4 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex === 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
+                        />
+                    </div>
+                </div>
+
                 <div className="w-full font-bold text-brand-red text-base mt-2 text-left">
                    API令牌分组优先级：限时特价→sora-vip→default→优质gemini→逆向
                 </div>
