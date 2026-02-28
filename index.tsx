@@ -1006,9 +1006,9 @@ const PRICE_DATA = [
   {
     category: 'AI对话',
     items: [
-      { m: 'Gemini-3-Flash', p: '提示0.30/ 1M tokens，补全1.26/ 1M tokens' },
-      { m: 'Gemini-3-Pro-Preview', p: '提示1.20/ 1M tokens，补全7.20/ 1M tokens' },
-      { m: 'GPT-5-Mini', p: '提示0.15/ 1M tokens，补全1.20/ 1M tokens' }
+      { m: 'Gemini-3-Flash', p: '提示0.30元/ 1M tokens，补全1.26元/ 1M tokens' },
+      { m: 'Gemini-3-Pro-Preview', p: '提示1.20元/ 1M tokens，补全7.20元/ 1M tokens' },
+      { m: 'GPT-5-Mini', p: '提示0.15元/ 1M tokens，补全1.20元/ 1M tokens' }
     ]
   },
   {
@@ -1047,7 +1047,7 @@ const PRICE_DATA = [
       { m: 'veo3.1-components', p: '0.29元/条' },
       { m: 'veo3.1-components-4k', p: '0.70元/条' },
       { m: 'veo3.1-pro-4k', p: '2.45元/条' },
-      { m: 'Grok Video 3', p: '6S 0.14元/条，10S 0.28元/条，15S 0.35元/条' },
+      { m: 'Grok Video 3', p: '0.14元/6秒，0.28元/10秒，0.35元/15秒' },
       { m: 'KLING Control Std (动作转移)', p: '0.595元/秒' },
       { m: 'KLING Control Pro (动作转移)', p: '0.952元/秒' },
       { m: 'KLING Avatar Std (数字人)', p: '0.476元/秒' },
@@ -1057,7 +1057,7 @@ const PRICE_DATA = [
   {
     category: '语音合成',
     items: [
-      { m: 'Gemini 2.5 Pro TTS', p: '提示0.50/ 1M tokens，补全12.00/ 1M tokens' },
+      { m: 'Gemini 2.5 Pro TTS', p: '提示0.50元/ 1M tokens，补全12.00元/ 1M tokens' },
     ]
   }
 ];
