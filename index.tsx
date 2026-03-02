@@ -1211,7 +1211,7 @@ const App = () => {
   const isFullWidthMode = isChatMode || isProxyMode || isAnnouncementMode || isResourcesMode;
 
   const handleSaveShortcut = () => {
-    const appUrl = window.location.origin;
+    const appUrl = "https://p.vivaapi.cn";
     const appName = "ViVa AI助手";
     const robotIconSvg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F472B6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 8V4H8'/><rect width='16' height='12' x='4' y='8' rx='2'/><path d='M2 14h2'/><path d='M20 14h2'/><path d='M15 13v2'/><path d='M9 13v2'/></svg>`;
     
@@ -1239,12 +1239,18 @@ const App = () => {
             padding: 2rem;
             border: 2px solid #000;
             background: #fff;
-            box-shadow: 4px 4px 0px #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         .icon {
             width: 64px;
             height: 64px;
             margin-bottom: 1rem;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
         h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
         p { margin: 0; color: #666; }
