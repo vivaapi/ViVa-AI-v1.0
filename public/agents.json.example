@@ -1,0 +1,24 @@
+{
+  "default": {
+    "appName": "绘影AI助手",
+    "baseUrl": "https://www.navidrawing.com",
+    "wechatSupport": "HeTieJiang777",
+    "exchangeRate": 0.8
+  },
+  "agents": [
+    {
+      "domain": "agent1.example.com",
+      "appName": "代理A的AI助手",
+      "baseUrl": "https://api.agent1.com",
+      "wechatSupport": "AgentA_WX",
+      "exchangeRate": 0.9
+    },
+    {
+      "domain": "agent2.example.com",
+      "appName": "代理B的AI助手",
+      "baseUrl": "https://api.agent2.com",
+      "wechatSupport": "AgentB_WX",
+      "exchangeRate": 1.0
+    }
+  ]
+}

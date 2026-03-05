@@ -101,7 +101,7 @@ interface DialogueLine {
 
 // --- Constants ---
 
-const FIXED_BASE_URL = 'https://www.vivaapi.cn';
+const FIXED_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://www.vivaapi.cn';
 const INITIAL_CHAT_MESSAGE_TEXT = '我可以帮你解答问题、分析文档或处理多媒体内容。支持上传: 文本, 图片, 音频, 视频, PDF以及更多格式。';
 
 const ASPECT_RATIO_LABELS: Record<string, string> = {
@@ -1077,15 +1077,17 @@ interface AgentConfig {
   casesLink: string;
   mainSiteLink: string;
   exchangeRate: number;
+  baseUrl?: string;
 }
 
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
-  appName: "ViVa AI助手",
-  wechatSupport: "viva-api",
+  appName: import.meta.env.VITE_APP_NAME || "绘影AI助手",
+  wechatSupport: import.meta.env.VITE_WECHAT_SUPPORT || "HeTieJiang777",
   moreDetailsLink: "https://ai.feishu.cn/wiki/O6Q9wrxxci898Wkj6ndcFnlknJd?from=from_copylink",
   casesLink: "https://my.feishu.cn/wiki/LIEvwzn0jipQ4PkF0dkc57I2njh?from=from_copylink",
-  mainSiteLink: "https://www.vivaapi.cn",
-  exchangeRate: 0.7
+  mainSiteLink: "https://www.navidrawing.com",
+  exchangeRate: parseFloat(import.meta.env.VITE_EXCHANGE_RATE || "0.8"),
+  baseUrl: import.meta.env.VITE_BASE_URL || FIXED_BASE_URL
 };
 
 const PriceView = ({ exchangeRate }: { exchangeRate: number }) => {
@@ -1176,15 +1178,45 @@ const App = () => {
   useEffect(() => {
     const fetchAgentConfig = async () => {
       try {
+        // 1. Try to fetch local config.json (for forks, git-ignored)
+        let localConfig = {};
+        try {
+          const localRes = await fetch('/config.json');
+          if (localRes.ok) {
+            localConfig = await localRes.json();
+          }
+        } catch (e) {
+          // Ignore if config.json doesn't exist
+        }
+
+        // 2. Try to fetch multi-agent config
         const response = await fetch('/agents.json');
         if (response.ok) {
           const data = await response.json();
           const hostname = window.location.hostname;
-          const agent = data.agents.find((a: any) => a.domain === hostname);
+          const agent = data.agents?.find((a: any) => a.domain === hostname);
+          
+          let finalConfig = { ...DEFAULT_AGENT_CONFIG, ...localConfig };
+          
           if (agent) {
-            setAgentConfig({ ...data.default, ...agent });
-          } else {
-            setAgentConfig(data.default || DEFAULT_AGENT_CONFIG);
+            finalConfig = { ...finalConfig, ...data.default, ...agent };
+          } else if (data.default) {
+            finalConfig = { ...finalConfig, ...data.default };
+          }
+          
+          setAgentConfig(finalConfig);
+          
+          // If the config has a baseUrl, update the app config
+          if (finalConfig.baseUrl) {
+            setConfig(prev => ({ ...prev, baseUrl: finalConfig.baseUrl || FIXED_BASE_URL }));
+            setTempConfig(prev => ({ ...prev, baseUrl: finalConfig.baseUrl || FIXED_BASE_URL }));
+          }
+        } else if (Object.keys(localConfig).length > 0) {
+          const finalConfig = { ...DEFAULT_AGENT_CONFIG, ...localConfig };
+          setAgentConfig(finalConfig);
+          if (finalConfig.baseUrl) {
+            setConfig(prev => ({ ...prev, baseUrl: finalConfig.baseUrl || FIXED_BASE_URL }));
+            setTempConfig(prev => ({ ...prev, baseUrl: finalConfig.baseUrl || FIXED_BASE_URL }));
           }
         }
       } catch (error) {
@@ -3266,7 +3298,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                 <button onClick={() => setActiveModal('links')} title="联系客服" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
                     <Headset className="w-5 h-5 md:w-6 md:h-6"/>
                 </button>
-                <a href={`${agentConfig.mainSiteLink}/console/log`} target="_blank" title="使用日志" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
+                <a href={`${agentConfig.baseUrl}/console/log`} target="_blank" title="使用日志" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
                   <History className="w-5 h-5 md:w-6 md:h-6" />
                 </a>
           </div>
@@ -3461,7 +3493,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                     </div>
 
                     {/* CTA Section */}
-                    <a href="https://ai.feishu.cn/wiki/O6Q9wrxxci898Wkj6ndcFnlknJd?from=from_copylink" target="_blank" className="block group relative">
+                    <a href={agentConfig.mainSiteLink} target="_blank" className="block group relative">
                         <div className="relative bg-white border-2 border-black p-8 flex flex-col md:flex-row items-center justify-between gap-6 hover:-translate-y-1 transition-transform cursor-pointer">
                             <div className="space-y-2">
                                 <h3 className="text-2xl font-black uppercase italic">立即加入代理计划</h3>
@@ -4221,7 +4253,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                 <button onClick={() => setActiveModal('links')} title="联系客服" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
                     <Headset className="w-5 h-5 md:w-6 md:h-6"/>
                 </button>
-                <a href={`${agentConfig.mainSiteLink}/console/log`} target="_blank" title="使用日志" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
+                <a href={`${agentConfig.baseUrl}/console/log`} target="_blank" title="使用日志" className="w-9 h-9 md:w-10 md:h-10 bg-white border border-black flex items-center justify-center brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
                   <History className="w-5 h-5 md:w-6 md:h-6" />
                 </a>
           </div>
@@ -4290,7 +4322,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                         </div>
                         {asset.type === 'video' && (
                             <a 
-                                href={`${agentConfig.mainSiteLink}/console/task`} 
+                                href={`${agentConfig.baseUrl}/console/task`} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
