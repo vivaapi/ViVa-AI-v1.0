@@ -5,15 +5,15 @@
 
 export const AGENT_CONFIG = {
   // 1. AI应用名称
-  appName: "ViVa AI助手",
+  appName: "ViVa AI生图",
 
   // 2. BASE_URL 地址 (使用日志和查询进度是此地址的子页面)
-  baseUrl: "https://www.vivaapi.cn",
+  baseUrl: "www.navidrawing.com",
 
   // 3. 微信客服号码
-  wechatContact: "viva-api",
+  wechatContact: "123456",
 
-  // 4. 汇率设置 (默认 0.7)
+  // 4. 汇率设置 (默认 0.8)
   // 价格计算公式: 显示价格 = (当前汇率 * 默认价格) / 0.7
   exchangeRate: 0.7,
 };
