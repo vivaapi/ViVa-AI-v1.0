@@ -25,6 +25,6 @@ export const APP_CONFIG = {
   // 7. 案例链接（CASE_URL）：默认值="https://www.xxxx.cn/case"，代理替换为专属链接
   CASE_URL: "https://my.feishu.cn/wiki/LIEvwzn0jipQ4PkF0dkc57I2njh?from=from_copylink",
 
-  // 8. 保存到桌面的链接（DESKTOP_SAVE_URL）：默认值="p.xxxx.cn"，代理替换为部署到Vercel的自定义域名
-  DESKTOP_SAVE_URL: "p.vivaapi.cn",
+  // 8. 保存到桌面的链接（DESKTOP_SAVE_URL）：默认值="a.xxxx.cn"，代理替换为部署到Vercel的自定义域名
+  DESKTOP_SAVE_URL: "a.danzhichen.com",
 };
