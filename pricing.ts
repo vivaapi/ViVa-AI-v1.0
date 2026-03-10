@@ -15,8 +15,8 @@ export const getPriceFactor = () => {
 export const formatPriceString = (priceStr: string): string => {
   const factor = getPriceFactor();
   
-  // 正则匹配数字（包括小数）
-  return priceStr.replace(/(\d+(\.\d+)?)/g, (match) => {
+  // 只匹配带有小数点的数字，或者后面紧跟着“元”的数字
+  return priceStr.replace(/(\d+\.\d+|\d+(?=\s*元))/g, (match) => {
     const originalPrice = parseFloat(match);
     const newPrice = originalPrice * factor;
     
