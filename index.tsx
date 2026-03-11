@@ -15,7 +15,7 @@ import {
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
   ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown,
-  Link, Globe
+  Link, Globe, Bell
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -582,6 +582,7 @@ const ChatView = ({
     const [copiedId, setCopiedId] = useState<number | null>(null);
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -667,6 +668,13 @@ const ChatView = ({
     const generateResponse = async (history: ChatMessage[], retryModelId?: string) => {
         setIsLoading(true);
         const currentModelId = retryModelId || modelId;
+        
+        // Cancel any ongoing request
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+        
         try {
             const key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || (typeof process !== 'undefined' && process.env && process.env.API_KEY ? process.env.API_KEY : '')).trim();
             if (!key) throw new Error("请先设置API Key");
@@ -718,7 +726,8 @@ const ChatView = ({
                     model: targetModelId,
                     messages: messages,
                     stream: false
-                })
+                }),
+                signal: abortControllerRef.current.signal
             });
 
             const data = await res.json();
@@ -737,6 +746,11 @@ const ChatView = ({
             }
 
         } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log('Request aborted');
+                setMessages(prev => [...prev, { role: 'system', text: '已停止生成', isDivider: true }]);
+                return;
+            }
             console.error("Generation error:", error);
             // Auto-switch logic
             if (!retryModelId) {
@@ -749,9 +763,20 @@ const ChatView = ({
             }
             setMessages(prev => [...prev, { role: 'model', text: `Error: ${error.message}`, error: true }]);
         } finally {
+            if (abortControllerRef.current?.signal.aborted === false) {
+                abortControllerRef.current = null;
+            }
             if (!retryModelId) {
                 setIsLoading(false);
             }
+        }
+    };
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+            setIsLoading(false);
         }
     };
 
@@ -1036,11 +1061,11 @@ ${input.replace("@视频反推", "").trim()}`;
                          </div>
                          
                          <button 
-                            onClick={sendMessage}
-                            disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                            onClick={isLoading ? stopGeneration : sendMessage}
+                            disabled={!isLoading && (!input.trim() && attachments.length === 0)}
                             className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200
                                 ${isLoading 
-                                    ? 'bg-gray-100 text-black cursor-not-allowed' 
+                                    ? 'bg-gray-100 text-black hover:bg-gray-200 shadow-sm cursor-pointer' 
                                     : (input.trim() || attachments.length > 0)
                                         ? 'bg-green-500 text-white hover:bg-green-600 shadow-md transform hover:scale-105'
                                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -1209,6 +1234,7 @@ const PriceView = () => {
 const App = () => {
   const [mainCategory, setMainCategory] = useState<MainCategory>('image');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showAnnouncement, setShowAnnouncement] = useState(true);
   
   // Chat state moved here for persistence
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: 'model', text: INITIAL_CHAT_MESSAGE_TEXT }]);
@@ -1286,6 +1312,7 @@ const App = () => {
     { id: 'img-conv', name: '图片格式转换', desc: '支持JPG, PNG, BMP, WEBP等多种格式互转。', url: 'https://www.xunjietupian.com/', icon: 'ImageIcon' },
     { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' },
     { id: 'img-url', name: '图片转URL链接', desc: '快速将图片转换为在线URL链接。', url: 'https://lsky.zhongzhuan.chat', icon: 'Link' },
+    { id: 'watermark', name: '图片/PDF去水印', desc: 'Pilio.ai - 专业的图片与PDF在线去水印工具。', url: 'https://pilio.ai/zh', icon: 'Eraser' },
     { id: 'vpn', name: '科学上网（付费）', desc: '高速稳定的网络加速服务。', url: 'https://caomei888.top/#/register?code=iPB4QjfQ', icon: 'Globe' }
   ]);
   const [draggedResourceIdx, setDraggedResourceIdx] = useState<number | null>(null);
@@ -3247,7 +3274,7 @@ RoleName必须严格对应用户输入中的角色名。`;
   const renderNavRail = () => (
       <div className="w-full md:w-20 bg-white border-b-2 md:border-b-0 border-black flex md:flex-col justify-between md:justify-start items-center z-30 shrink-0 overflow-x-auto md:overflow-visible">
           
-          <div className="hidden md:flex h-16 w-full items-center justify-end pr-3 border-b-2 border-black bg-brand-yellow shrink-0">
+          <div className="hidden md:flex h-12 w-full items-center justify-end pr-3 border-b-2 border-black bg-brand-yellow shrink-0">
              <Bot className="w-10 h-10 text-black" strokeWidth={2} />
           </div>
 
@@ -3297,7 +3324,7 @@ RoleName必须严格对应用户输入中的角色名。`;
       {renderNavRail()}
 
       <div className={`bg-white flex flex-col z-20 brutalist-shadow transition-all duration-300 ${isFullWidthMode ? 'flex-1 w-full border-r-0' : (isSidebarOpen ? 'w-full md:w-[450px] border-r-2 border-black' : 'w-0 md:w-0 overflow-hidden border-r-0 opacity-0')}`}>
-        <header className="bg-brand-yellow pl-1 pr-5 border-b-2 border-black h-14 md:h-16 flex items-center justify-between transition-colors duration-300">
+        <header className="bg-brand-yellow pl-1 pr-5 border-b-2 border-black h-12 flex items-center justify-between transition-colors duration-300">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold italic tracking-tight text-black">{APP_CONFIG.APP_NAME}</h1>
           </div>
@@ -3383,6 +3410,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                                               item.icon === 'Monitor' ? <Monitor className="w-6 h-6" /> : 
                                               item.icon === 'Link' ? <Link className="w-6 h-6" /> :
                                               item.icon === 'Globe' ? <Globe className="w-6 h-6" /> :
+                                              item.icon === 'Eraser' ? <Eraser className="w-6 h-6" /> :
                                               <ImageIcon className="w-6 h-6" />}
                                          </div>
                                          <div className="flex items-center gap-3">
@@ -4199,7 +4227,7 @@ RoleName必须严格对应用户输入中的角色名。`;
       {!isFullWidthMode && (
       <div ref={galleryRef} className="flex-1 flex flex-col relative h-full overflow-hidden" onMouseDown={handleContainerMouseDown}>
         {/* ... (Existing JSX for gallery header and items remains the same) */}
-        <div className="bg-brand-yellow border-b-2 border-black px-6 h-14 md:h-16 flex justify-between items-center z-10 shrink-0">
+        <div className="bg-brand-yellow border-b-2 border-black px-6 h-12 flex justify-between items-center z-10 shrink-0">
           <div className="flex items-center gap-4">
               {selectedAssetIds.size > 0 && (
                 <div className="flex gap-2 mr-4">
@@ -4228,6 +4256,29 @@ RoleName必须严格对应用户输入中的角色名。`;
            <button onClick={handleSelectAll} className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-white uppercase">
               {selectedAssetIds.size === generatedAssets.length && generatedAssets.length > 0 ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>} 全选
             </button>
+            
+            <div className="flex-1 flex items-center overflow-hidden bg-[#FEF2F2] border border-[#FECACA] rounded px-3 py-1.5 relative h-[34px]">
+                {showAnnouncement ? (
+                    <>
+                        <div className="overflow-hidden whitespace-nowrap w-full pr-6 relative">
+                            <div className="inline-block animate-marquee text-[#DC2626] text-xs font-medium">
+                                公告：1、本应用不储存用户资产，请及时下载；2、生成失败请重新生成，扣费自动返还；3、OpenClaw一键安装包见主站API文档。
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setShowAnnouncement(false)} 
+                            className="absolute right-2 z-10 text-[#DC2626] hover:text-[#991B1B] bg-[#FEF2F2] pl-2"
+                            title="关闭公告"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </>
+                ) : (
+                    <div className="text-[#DC2626] text-xs font-medium flex items-center gap-1 cursor-pointer w-full" onClick={() => setShowAnnouncement(true)}>
+                        <Bell className="w-3.5 h-3.5" /> 展开公告
+                    </div>
+                )}
+            </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6 no-scrollbar">
