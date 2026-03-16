@@ -14,7 +14,7 @@ import {
   Paperclip, FileText, Music, Mic, Volume2,
   User, VolumeX, AudioLines, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
-  ChevronDown, Brush, Brain, Monitor, ArrowDown, FolderOpen, Frown,
+  ChevronDown, Brush, Brain, Monitor, FolderOpen, Frown,
   Link, Globe, Bell
 } from 'lucide-react';
 
@@ -27,7 +27,7 @@ declare var process: {
   }
 };
 
-type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'edit-prompt' | 'styles' | 'library' | 'save-prompt-confirm' | 'video-remix' | null;
+type ModalType = 'settings' | 'links' | 'usage' | 'price' | 'support' | 'edit-prompt' | 'edit-line' | 'styles' | 'library' | 'save-prompt-confirm' | 'video-remix' | null;
 type MainCategory = 'image' | 'video' | 'proxy' | 'audio' | 'chat' | 'resources';
 
 interface AppConfig {
@@ -1247,11 +1247,12 @@ const App = () => {
   const [selectedVideoModel, setSelectedVideoModel] = useState(VIDEO_MODELS[0].id);
   const [selectedAudioModel, setSelectedAudioModel] = useState(AUDIO_MODELS[0].id);
   const [selectedVoice, setSelectedVoice] = useState(VOICES[0].id);
-  const [audioGenMode, setAudioGenMode] = useState<'single' | 'multi'>('single');
+
   const [speakerMap, setSpeakerMap] = useState<{id: string, name: string, voice: string}[]>([
-    { id: '1', name: '角色A', voice: 'Puck' },
-    { id: '2', name: '角色B', voice: 'Zephyr' }
+    { id: '1', name: '角色A', voice: 'Puck' }
   ]);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [optimizingLineId, setOptimizingLineId] = useState<string | null>(null);
   const [videoOptionIdx, setVideoOptionIdx] = useState(0);
   const [videoRatio, setVideoRatio] = useState('9:16');
   const [isSyncAudio, setIsSyncAudio] = useState(false);
@@ -1327,6 +1328,12 @@ const App = () => {
   const isAudioMode = mainCategory === 'audio';
   const isChatMode = mainCategory === 'chat';
   const isResourcesMode = mainCategory === 'resources';
+
+  useEffect(() => {
+    if (isAudioMode && dialogueLines.length === 0 && speakerMap.length > 0) {
+      setDialogueLines([{ id: generateUUID(), speakerId: speakerMap[0].id, text: '' }]);
+    }
+  }, [isAudioMode, speakerMap]);
   
   // Determine if we should show the full-width view (like Chat, Proxy, Resources)
   const isFullWidthMode = isChatMode || isProxyMode || isResourcesMode;
@@ -1451,7 +1458,7 @@ const App = () => {
 
   // Sync Dialogue Lines to Prompt when in Multi Audio Mode
   useEffect(() => {
-    if (isAudioMode && audioGenMode === 'multi') {
+    if (isAudioMode) {
         const text = dialogueLines.map(line => {
              const speaker = speakerMap.find(s => s.id === line.speakerId);
              const name = speaker ? speaker.name : (speakerMap.length > 0 ? speakerMap[0].name : 'Unknown');
@@ -1802,14 +1809,6 @@ const App = () => {
     }
   }, [selectedModel, selectedVideoModel, isVideoMode, referenceImages.length]);
 
-  const handleAudioModeChange = (mode: 'single' | 'multi') => {
-      setAudioGenMode(mode);
-      if (mode === 'multi') {
-          const lines = parsePromptToLines(prompt, speakerMap);
-          setDialogueLines(lines);
-      }
-  };
-
   // ... (Other handlers are reused directly from original code) ...
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -2052,30 +2051,6 @@ const App = () => {
 2. 不要包含任何分析、解释、标题或分点（如"核心主题"、"画面细节"等）。
 3. 确保提示词适合Sora 2或Veo等模型理解。
 4. 仅输出提示词本身。`;
-     } else if (isAudioMode) {
-       if (audioGenMode === 'multi') {
-           sys = `你是一位精通多角色对话剧本创作的专家。你的任务是为对话添加表演指导。
-
-请严格遵循以下规则：
-1. **保持原义**：**绝对禁止**修改、润色或改写用户的原始对话内容。必须原封不动地保留原文。
-2. **添加指导**：分析对话语境，在每一句台词内容的**最前方**添加关于【风格】、【语气】、【口音】或【节奏】的自然语言指导（使用括号包裹）。
-3. **格式要求**：
-   RoleName: (指导内容) 原始对话内容
-   RoleName: (指导内容) 原始对话内容
-
-RoleName必须严格对应用户输入中的角色名。`;
-       } else {
-           sys = `你是一位精通语音合成（TTS）的提示词优化专家。你的任务是为用户的输入添加语音风格、语气、口音和语速指令。
-
-请严格遵循以下规则：
-1. **保持原义**：**绝对禁止**修改、润色或改写用户的原始文本内容。必须原封不动地保留原文。
-2. **前置指令**：根据文本内容分析情感，在文本的**最前方**添加自然语言指令（使用括号包裹），描述应采用的【风格】、【语气】、【口音】或【节奏】。
-   - 格式必须为：“(指令描述) [原始文本]”
-   - 例如用户输入“为什么会这样”，输出：“(用悲伤、缓慢且略带颤抖的语气说) 为什么会这样”
-   - 例如用户输入“咱们今儿个真高兴”，输出：“(用欢快、急促的节奏，带有京腔口音说) 咱们今儿个真高兴”
-
-只输出最终结果，不要包含任何解释。`;
-       }
      }
 
      try {
@@ -2116,7 +2091,7 @@ RoleName必须严格对应用户输入中的角色名。`;
 
           const optimized = data.choices?.[0]?.message?.content?.trim();
           if (optimized) { 
-              if (isAudioMode && audioGenMode === 'multi') {
+              if (isAudioMode) {
                   const newLines = parsePromptToLines(optimized, speakerMap);
                   setDialogueLines(newLines);
               } else {
@@ -2136,6 +2111,69 @@ RoleName必须严格对应用户输入中的角色名。`;
         setError("AI优化失败: " + (lastError.message || "所有模型均尝试失败"));
       }
      } catch (e: any) { setError("AI优化失败: " + (e.message || "未知错误")); } finally { setIsOptimizing(false); }
+  };
+
+  const optimizeLine = async (lineId: string) => {
+     const line = dialogueLines.find(l => l.id === lineId);
+     if (!line || !line.text.trim()) return;
+     
+     let key = ((config.selectedKeyIndex === 1 ? config.apiKey2 : config.apiKey) || safeEnvKey).trim();
+     if (!key) { setError("请先设置API Key"); return; }
+     
+     setOptimizingLineId(lineId);
+     
+     const sys = `你是一位精通语音合成（TTS）的提示词优化专家。你的任务是为用户的输入添加语音风格、语气、口音和语速指令。
+
+请严格遵循以下规则：
+1. **保持原义**：**绝对禁止**修改、润色或改写用户的原始文本内容。必须原封不动地保留原文。
+2. **前置指令**：根据文本内容分析情感，在文本的**最前方**添加自然语言指令（使用括号包裹），描述应采用的【风格】、【语气】、【口音】或【节奏】。
+   - 格式必须为：“(指令描述) [原始文本]”
+   - 例如用户输入“为什么会这样”，输出：“(用悲伤、缓慢且略带颤抖的语气说) 为什么会这样”
+   - 例如用户输入“咱们今儿个真高兴”，输出：“(用欢快、急促的节奏，带有京腔口音说) 咱们今儿个真高兴”
+
+只输出最终结果，不要包含任何解释。`;
+
+     try {
+        const messages = [
+            { role: "system", content: sys },
+            { role: "user", content: line.text }
+        ];
+
+      let lastError = null;
+      const modelsToTry = ['gpt-5-mini', 'gemini-3-flash-preview', 'gemini-3-pro-preview'];
+      
+      for (const model of modelsToTry) {
+        try {
+          const res = await fetch(`${config.baseUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({ 
+                model: model, 
+                messages: messages, 
+                max_tokens: 2000 
+            })
+          });
+          const data = await res.json();
+          
+          if (data.error) throw new Error(data.error.message || "Optimization Error");
+
+          const optimized = data.choices?.[0]?.message?.content?.trim();
+          if (optimized) { 
+              setDialogueLines(prev => prev.map(l => l.id === lineId ? { ...l, text: optimized } : l));
+              setError(null);
+              setOptimizingLineId(null);
+              return;
+          }
+        } catch (e: any) {
+          lastError = e;
+          console.warn(`Model ${model} failed, trying next...`, e);
+        }
+      }
+      
+      if (lastError) {
+        setError("AI优化失败: " + (lastError.message || "所有模型均尝试失败"));
+      }
+     } catch (e: any) { setError("AI优化失败: " + (e.message || "未知错误")); } finally { setOptimizingLineId(null); }
   };
 
   // ... (Styles, Library, Drag handlers remain the same) ...
@@ -2250,7 +2288,7 @@ RoleName必须严格对应用户输入中的角色名。`;
     if (mainCategory === 'chat') {
         setChatInput(prev => prev ? prev + '\n' + text : text);
     } else {
-        if (isAudioMode && audioGenMode === 'multi') {
+        if (isAudioMode) {
             const lines = parsePromptToLines(text, speakerMap);
             setDialogueLines(lines);
         }
@@ -2422,7 +2460,7 @@ RoleName必须严格对应用户输入中的角色名。`;
     const tPrompt = overrideConfig?.prompt ?? prompt;
     const tModelId = overrideConfig?.modelId ?? selectedAudioModel;
     const tVoice = overrideConfig?.selectedVoice ?? selectedVoice;
-    const tAudioMode = overrideConfig?.audioGenMode ?? audioGenMode;
+    const tAudioMode = overrideConfig?.audioGenMode ?? 'multi';
     const tSpeakerMap = overrideConfig?.speakerMap ?? speakerMap;
     // Removed unused tRefAudio declaration
 
@@ -3188,7 +3226,6 @@ RoleName必须严格对应用户输入中的角色名。`;
            setSelectedAudioModel(asset.config.modelId);
            setSelectedVoice(asset.config.selectedVoice);
            if (asset.config.audioGenMode) {
-               setAudioGenMode(asset.config.audioGenMode);
                if (asset.config.audioGenMode === 'multi') {
                    const lines = parsePromptToLines(asset.config.prompt, asset.config.speakerMap || speakerMap);
                    setDialogueLines(lines);
@@ -3846,30 +3883,6 @@ RoleName必须严格对应用户输入中的角色名。`;
 
                 {isAudioMode && (
                     <div className="space-y-3 pt-2">
-                        <div className="flex bg-white border border-black brutalist-shadow-sm">
-                            <button 
-                                onClick={() => handleAudioModeChange('single')}
-                                className={`flex-1 py-1.5 text-xs font-normal uppercase transition-colors ${audioGenMode === 'single' ? 'bg-brand-yellow text-black' : 'hover:bg-slate-100'}`}
-                            >
-                                单人 (Single)
-                            </button>
-                            <div className="w-px bg-black"></div>
-                            <button 
-                                onClick={() => handleAudioModeChange('multi')}
-                                className={`flex-1 py-1.5 text-xs font-normal uppercase transition-colors ${audioGenMode === 'multi' ? 'bg-brand-yellow text-black' : 'hover:bg-slate-100'}`}
-                            >
-                                多人 (Multi)
-                            </button>
-                        </div>
-
-                        {audioGenMode === 'single' ? (
-                            <div className="space-y-1">
-                                <label className={labelClass}>声音角色 VOICE</label>
-                                <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className={selectClass}>
-                                    {VOICES.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                                </select>
-                            </div>
-                        ) : (
                             <div className="space-y-2">
                                 <label className={labelClass}>角色配置 CHARACTERS</label>
                                 <div className="space-y-2">
@@ -3910,66 +3923,43 @@ RoleName必须严格对应用户输入中的角色名。`;
                                         </div>
                                     ))}
                                     <button 
-                                        onClick={() => setSpeakerMap([...speakerMap, { id: generateUUID(), name: `角色${String.fromCharCode(65 + speakerMap.length)}`, voice: VOICES[speakerMap.length % VOICES.length].id }])}
+                                        onClick={() => {
+                                            const newId = generateUUID();
+                                            const newSpeaker = { id: newId, name: `角色${String.fromCharCode(65 + speakerMap.length)}`, voice: VOICES[speakerMap.length % VOICES.length].id };
+                                            setSpeakerMap([...speakerMap, newSpeaker]);
+                                            setDialogueLines([...dialogueLines, { id: generateUUID(), speakerId: newId, text: '' }]);
+                                        }}
                                         className="w-full py-2 border border-dashed border-black bg-white hover:bg-slate-50 text-xs font-normal uppercase flex items-center justify-center gap-1"
                                     >
                                         <Plus className="w-3 h-3" /> 添加角色 (Add Speaker)
                                     </button>
                                 </div>
                             </div>
-                        )}
                     </div>
                 )}
 
-                {isVideoMode && selectedVideoModel !== 'kling-avatar-image2video' && selectedVideoModel !== 'kling-motion-control' && (selectedVideoModel.startsWith('kling') || selectedVideoModel.startsWith('grok')) && (
-                    <div className="space-y-1 mt-2">
-                       <label className="flex items-center gap-2 cursor-pointer bg-white border border-black p-2 brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all">
-                           <input type="checkbox" checked={isSyncAudio} onChange={(e) => setIsSyncAudio(e.target.checked)} className="w-4 h-4 accent-black" />
-                           <span className="text-xs font-normal uppercase flex items-center gap-1"><Mic className="w-3 h-3"/> 音画同步 / AUDIO SYNC</span>
-                       </label>
+                {!isVideoMode && !isAudioMode && (
+                    <div className="grid grid-cols-2 gap-2.5">
+                        <div className="space-y-1">
+                            <label className={labelClass}>比例 ASPECT</label>
+                            <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className={selectClass}>
+                                {(currentImageModel)?.supportedAspectRatios.map(r => <option key={r} value={r}>{ASPECT_RATIO_LABELS[r] || r}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className={labelClass}>质量 QUALITY</label>
+                            <select value={imageSize} onChange={(e) => setImageSize(e.target.value)} className={selectClass}>
+                                {currentImageModel?.supportedResolutions.map((res, idx) => (
+                                    <option key={idx} value={res}>{res}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
-                )}
-
-                {!isVideoMode && !isAudioMode && currentImageModel && (
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="space-y-1">
-                      <label className={labelClass}>比例 ASPECT</label>
-                      <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className={selectClass}>
-                        {currentImageModel.supportedAspectRatios.map(r => <option key={r} value={r}>{ASPECT_RATIO_LABELS[r] || r}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className={labelClass}>分辨率 QUALITY</label>
-                      <select value={imageSize} onChange={(e) => setImageSize(e.target.value)} className={selectClass}>
-                        {currentImageModel.supportedResolutions.map(res => <option key={res} value={res}>{res}</option>)}
-                      </select>
-                    </div>
-                  </div>
                 )}
 
                 {isVideoMode && (
                     <>
-                        {(selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') ? (
-                            <div className="space-y-1">
-                                <label className={labelClass}>模式 MODE</label>
-                                <select 
-                                    value={videoOptionIdx} 
-                                    onChange={(e) => setVideoOptionIdx(parseInt(e.target.value))} 
-                                    className={`${selectClass} h-[40px]`}
-                                >
-                                    {(selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') ? (
-                                        <>
-                                            <option value={0}>标准模式</option>
-                                            <option value={1}>高品质模式</option>
-                                        </>
-                                    ) : (
-                                        currentVideoModel?.options.map((opt, idx) => (
-                                            <option key={idx} value={idx}>{opt.q === '高品质模式' ? 'PRO (高品质)' : 'STD (标准)'}</option>
-                                        ))
-                                    )}
-                                </select>
-                            </div>
-                        ) : selectedVideoModel === 'seedance-2.0' ? (
+                        {selectedVideoModel === 'kling-motion-control' ? (
                             <div className="grid grid-cols-2 gap-2.5">
                                 <div className="space-y-1">
                                     <label className={labelClass}>比例 ASPECT</label>
@@ -4057,15 +4047,14 @@ RoleName必须严格对应用户输入中的角色名。`;
                   </div>
                   
                   {/* Updated Toolbar matching the provided image style */}
+                  {!isAudioMode && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#F7CE00] text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <><Wand2 className="w-3.5 h-3.5"/> AI</>}
                     </button>
-                    {!isAudioMode && (
-                        <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#3B82F6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#3B82F6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                         <Palette className="w-3.5 h-3.5"/> 风格镜头
-                        </button>
-                    )}
+                    </button>
                     <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#A855F7] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       <Bookmark className="w-3.5 h-3.5"/> 词库
                     </button>
@@ -4082,6 +4071,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                       </button>
                     </div>
                   </div>
+                  )}
 
                   {isVideoMode && selectedVideoModel === 'kling-avatar-image2video' && (
                         <div className="mb-2 text-xs text-brand-red font-normal italic">
@@ -4099,8 +4089,8 @@ RoleName必须严格对应用户输入中的角色名。`;
                   )}
 
                   <div className="relative group">
-                      {isAudioMode && audioGenMode === 'multi' ? (
-                          <div className="flex flex-col gap-2 h-48 overflow-y-auto border border-black bg-slate-50 p-2">
+                      {isAudioMode ? (
+                          <div className="flex flex-col gap-2 overflow-y-auto border border-black p-2">
                              {dialogueLines.map((line, idx) => (
                                  <div key={line.id} className="bg-white border border-black p-2 shadow-sm flex flex-col gap-2 animate-in slide-in-from-bottom-2 fade-in">
                                     <div className="flex justify-between items-center bg-brand-cream border-b border-black/10 pb-1 mb-1 px-1">
@@ -4111,40 +4101,35 @@ RoleName必须严格对应用户输入中的角色名。`;
                                                 newLines[idx].speakerId = e.target.value;
                                                 setDialogueLines(newLines);
                                             }}
-                                            className="text-xs font-bold bg-transparent outline-none w-32 truncate"
+                                            className="text-xs font-normal bg-transparent outline-none w-32 truncate"
                                         >
                                             {speakerMap.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
-                                        <div className="flex gap-1 items-center">
-                                           <button 
-                                                onClick={() => {
-                                                    if (idx === 0) return;
-                                                    const newLines = [...dialogueLines];
-                                                    [newLines[idx - 1], newLines[idx]] = [newLines[idx], newLines[idx - 1]];
-                                                    setDialogueLines(newLines);
-                                                }}
-                                                disabled={idx === 0}
-                                                className="p-1 text-slate-400 hover:text-black disabled:opacity-30"
+                                        <div className="flex gap-2 items-center">
+                                            <button 
+                                                onClick={() => optimizeLine(line.id)}
+                                                disabled={optimizingLineId === line.id}
+                                                className="p-1 text-brand-red hover:scale-110 transition-transform disabled:opacity-50"
+                                                title="AI润色"
                                             >
-                                                <ArrowUp className="w-3 h-3"/>
+                                                {optimizingLineId === line.id ? <Loader2 className="w-4 h-4 animate-spin"/> : <Wand2 className="w-4 h-4"/>}
                                             </button>
-                                           <button 
+                                            <button 
                                                 onClick={() => {
-                                                    if (idx === dialogueLines.length - 1) return;
-                                                    const newLines = [...dialogueLines];
-                                                    [newLines[idx + 1], newLines[idx]] = [newLines[idx], newLines[idx + 1]];
-                                                    setDialogueLines(newLines);
+                                                    setEditingLineId(line.id);
+                                                    setActiveModal('edit-line');
                                                 }}
-                                                disabled={idx === dialogueLines.length - 1}
-                                                className="p-1 text-slate-400 hover:text-black disabled:opacity-30"
+                                                className="p-1 text-brand-red hover:scale-110 transition-transform"
+                                                title="展开"
                                             >
-                                                <ArrowDown className="w-3 h-3"/>
+                                                <Maximize2 className="w-4 h-4"/>
                                             </button>
-                                           <button 
+                                            <button 
                                                 onClick={() => setDialogueLines(dialogueLines.filter(l => l.id !== line.id))}
-                                                className="text-slate-400 hover:text-red-500 p-1 transition-colors"
+                                                className="p-1 text-brand-red hover:scale-110 transition-transform"
+                                                title="删除"
                                             >
-                                                <Trash2 className="w-3 h-3"/>
+                                                <Trash2 className="w-4 h-4"/>
                                             </button>
                                         </div>
                                     </div>
@@ -4155,7 +4140,7 @@ RoleName必须严格对应用户输入中的角色名。`;
                                             newLines[idx].text = e.target.value;
                                             setDialogueLines(newLines);
                                         }}
-                                        className="w-full h-12 p-1 text-sm outline-none resize-none bg-transparent font-normal" 
+                                        className="w-full h-40 p-3 border border-black font-normal text-base bg-white focus:outline-none brutalist-input resize-y leading-relaxed" 
                                         placeholder="输入台词..." 
                                     />
                                  </div>
@@ -4165,23 +4150,13 @@ RoleName必须严格对应用户输入中的角色名。`;
                                      点击下方按钮添加对话
                                  </div>
                              )}
-                             <div className="flex gap-2 flex-wrap pt-2 mt-auto">
-                                 {speakerMap.map(s => (
-                                    <button 
-                                        key={s.id}
-                                        onClick={() => setDialogueLines([...dialogueLines, { id: generateUUID(), speakerId: s.id, text: '' }])}
-                                        className="flex items-center gap-1 px-3 py-1.5 bg-white border border-black text-xs font-bold uppercase hover:bg-brand-yellow transition-colors brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none"
-                                    >
-                                        <Plus className="w-3 h-3"/> {s.name} 说...
-                                    </button>
-                                 ))}
-                             </div>
+                             {/* Dialogue lines bottom buttons removed per user request */}
                           </div>
                       ) : (
                           <textarea 
                               value={prompt} 
                               onChange={(e) => setPrompt(e.target.value)} 
-                              placeholder={isAudioMode ? (audioGenMode === 'single' ? "阴森低语地说：指尖阵阵刺痛……我想定是那邪祟，正悄然近矣。" : "") : "描述您的创作奇想..."} 
+                              placeholder={isAudioMode ? "" : "描述您的创作奇想..."} 
                               className="w-full h-48 p-3 border border-black font-normal text-base bg-white focus:outline-none brutalist-input resize-y leading-relaxed" 
                           />
                       )}
@@ -4197,13 +4172,16 @@ RoleName必须严格对应用户输入中的角色名。`;
           </section>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-3 pt-4">
+            {error && <div className="bg-white border-2 border-brand-red p-3 text-brand-red font-normal text-[11px] brutalist-shadow-sm">ERROR: {error}</div>}
+            
             {!isChatMode && !isProxyMode && !isResourcesMode && (
               <>
                 <button onClick={() => executeGeneration()} className="w-full py-3 bg-brand-red text-white text-xl font-normal border border-black brutalist-shadow hover:translate-y-1.5 hover:shadow-none transition-all uppercase tracking-tighter">
                   开始创作/Start Creating
                 </button>
-                
+
+                {!isAudioMode && (
                 <div className="bg-white border border-black p-4 brutalist-shadow-sm space-y-1.5">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertCircle className="w-4 h-4 text-brand-red" />
@@ -4215,11 +4193,10 @@ RoleName必须严格对应用户输入中的角色名。`;
                     <p className="text-sm font-normal leading-tight text-slate-700">3、欢迎提供优化建议。</p>
                   </div>
                 </div>
+                )}
               </>
             )}
           </div>
-          
-          {error && <div className="bg-white border-2 border-brand-red p-3 text-brand-red font-normal text-[11px] brutalist-shadow-sm">ERROR: {error}</div>}
         </div>
         )}
       </div>
@@ -4589,6 +4566,52 @@ RoleName必须严格对应用户输入中的角色名。`;
                             复制 / Copy
                         </button>
                         <button onClick={() => setActiveModal(null)} className="px-6 py-2 bg-brand-red text-white border border-black font-normal uppercase hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all text-xs">
+                            完成 / Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </div>
+        </div>
+      )}
+
+      {activeModal === 'edit-line' && editingLineId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-4xl h-[80vh] bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative flex flex-col">
+            <ModalHeader title="台词编辑 / LINE EDITOR" icon={Edit} onClose={() => { setActiveModal(null); setEditingLineId(null); }} />
+            <div className="flex-1 p-6 flex flex-col gap-4 min-h-0">
+                <textarea 
+                    value={dialogueLines.find(l => l.id === editingLineId)?.text || ''} 
+                    onChange={(e) => {
+                        const newLines = [...dialogueLines];
+                        const idx = newLines.findIndex(l => l.id === editingLineId);
+                        if (idx !== -1) {
+                            newLines[idx].text = e.target.value;
+                            setDialogueLines(newLines);
+                        }
+                    }} 
+                    placeholder="在此输入台词..." 
+                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed italic" 
+                />
+                <div className="flex justify-between items-center pt-2">
+                    <div className="text-xs text-slate-500 font-normal uppercase italic">
+                        {(dialogueLines.find(l => l.id === editingLineId)?.text || '').length} CHARS
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => {
+                            const newLines = [...dialogueLines];
+                            const idx = newLines.findIndex(l => l.id === editingLineId);
+                            if (idx !== -1) {
+                                newLines[idx].text = '';
+                                setDialogueLines(newLines);
+                            }
+                        }} className="px-4 py-2 bg-white border border-black font-normal uppercase hover:bg-slate-100 transition-colors brutalist-shadow-sm text-xs">
+                            清空 / Clear
+                        </button>
+                        <button onClick={() => { navigator.clipboard.writeText(dialogueLines.find(l => l.id === editingLineId)?.text || ''); }} className="px-4 py-2 bg-white border border-black font-normal uppercase hover:bg-brand-yellow transition-colors brutalist-shadow-sm text-xs">
+                            复制 / Copy
+                        </button>
+                        <button onClick={() => { setActiveModal(null); setEditingLineId(null); }} className="px-6 py-2 bg-brand-red text-white border border-black font-normal uppercase hover:translate-y-0.5 hover:shadow-none brutalist-shadow-sm transition-all text-xs">
                             完成 / Done
                         </button>
                     </div>
