@@ -598,9 +598,8 @@ const ChatView = ({
         }
     }, [input]);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files) return;
+    const processFiles = (files: FileList | File[]) => {
+        if (!files || files.length === 0) return;
         
         const capabilities = MODEL_CAPABILITIES[modelId];
         let hasUnsupported = false;
@@ -643,7 +642,24 @@ const ChatView = ({
             };
             reader.readAsDataURL(file);
         });
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            processFiles(e.target.files);
+        }
         e.target.value = '';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer.files) {
+            processFiles(e.dataTransfer.files);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
     };
 
     const removeAttachment = (idx: number) => {
@@ -926,7 +942,11 @@ ${input.replace("@视频反推", "").trim()}`;
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-white no-scrollbar pb-80">
+            <div 
+                className="flex-1 overflow-y-auto bg-white no-scrollbar pb-80"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+            >
                 <div className="max-w-6xl mx-auto p-4 space-y-6">
                 {messages.map((msg, idx) => {
                     if (msg.isDivider) {
@@ -1004,7 +1024,11 @@ ${input.replace("@视频反推", "").trim()}`;
                         <Video className="w-4 h-4" /> 视频反推
                     </button>
                 </div>
-                <div className="max-w-6xl mx-auto bg-[#F4F4F5] rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200">
+                <div 
+                    className="max-w-6xl mx-auto bg-[#F4F4F5] rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                >
                     <div className="flex-1 relative px-2 pt-2">
                          {attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2 max-h-[120px] overflow-y-auto px-1">
@@ -1288,7 +1312,7 @@ const App = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
+  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([{ id: generateUUID(), speakerId: '1', text: '' }]);
   const [seedanceDuration, setSeedanceDuration] = useState(10);
   
   // Library State & other states...
@@ -1810,8 +1834,7 @@ const App = () => {
   }, [selectedModel, selectedVideoModel, isVideoMode, referenceImages.length]);
 
   // ... (Other handlers are reused directly from original code) ...
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processImageFiles = (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     const currentModel = MODELS.find(m => m.id === selectedModel);
@@ -1869,11 +1892,16 @@ const App = () => {
       };
       reader.readAsDataURL(file as Blob);
     });
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        processImageFiles(e.target.files);
+    }
     e.target.value = '';
   };
 
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processVideoFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     if (selectedVideoModel === 'seedance-2.0') {
@@ -1932,11 +1960,16 @@ const App = () => {
             setError(`无法读取视频文件 ${file.name}`);
         }
     }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        await processVideoFiles(e.target.files);
+    }
     e.target.value = '';
   };
   
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processAudioFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
     
     if (selectedVideoModel === 'seedance-2.0') {
@@ -2009,7 +2042,37 @@ const App = () => {
              setError(`无法读取音频文件 ${file.name}`);
         }
     }
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        await processAudioFiles(e.target.files);
+    }
     e.target.value = '';
+  };
+
+  const handleDropMain = async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+
+      const imageFiles: File[] = [];
+      const videoFiles: File[] = [];
+      const audioFiles: File[] = [];
+
+      Array.from(files).forEach(file => {
+          if (file.type.startsWith('image/')) imageFiles.push(file);
+          else if (file.type.startsWith('video/')) videoFiles.push(file);
+          else if (file.type.startsWith('audio/')) audioFiles.push(file);
+      });
+
+      if (imageFiles.length > 0) processImageFiles(imageFiles);
+      if (videoFiles.length > 0) await processVideoFiles(videoFiles);
+      if (audioFiles.length > 0) await processAudioFiles(audioFiles);
+  };
+
+  const handleDragOverMain = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
   };
 
   const removeReferenceImage = (id: string) => setReferenceImages(prev => prev.filter(img => img.id !== id));
@@ -3534,7 +3597,11 @@ const App = () => {
             </div>
         ) : (
         // ... (Main generation config panel code remains same) ...
-        <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-6 no-scrollbar">
+        <div 
+            className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-6 no-scrollbar"
+            onDrop={handleDropMain}
+            onDragOver={handleDragOverMain}
+        >
           
           {!isAudioMode && (
           <section className="space-y-3">
@@ -3912,7 +3979,9 @@ const App = () => {
                                             <button 
                                                 onClick={() => {
                                                     if (speakerMap.length > 1) {
+                                                        const speakerToRemove = speakerMap[idx];
                                                         setSpeakerMap(speakerMap.filter((_, i) => i !== idx));
+                                                        setDialogueLines(dialogueLines.filter(line => line.speakerId !== speakerToRemove.id));
                                                     }
                                                 }}
                                                 className="bg-brand-red text-white p-1 border border-black hover:translate-y-0.5 hover:shadow-none transition-all"
@@ -4172,7 +4241,7 @@ const App = () => {
           </section>
           )}
 
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3">
             {error && <div className="bg-white border-2 border-brand-red p-3 text-brand-red font-normal text-[11px] brutalist-shadow-sm">ERROR: {error}</div>}
             
             {!isChatMode && !isProxyMode && !isResourcesMode && (
