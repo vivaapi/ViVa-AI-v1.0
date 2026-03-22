@@ -903,7 +903,7 @@ ${input.replace("@视频反推", "").trim()}`;
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#fdfdfd] border-t-0 border-black relative">
+        <div className="flex flex-col h-full bg-white border-t-0 border-black relative">
             {/* Top Bar - Model Selection */}
             <div className="border-b border-gray-100 bg-white relative z-50">
                 <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
@@ -964,7 +964,7 @@ ${input.replace("@视频反推", "").trim()}`;
                             <div 
                                 className={`max-w-[85%] p-4 text-base leading-relaxed shadow-sm rounded-2xl
                                 ${msg.role === 'user' 
-                                    ? 'bg-[#F4F4F5] text-gray-800' 
+                                    ? 'bg-zinc-100 text-gray-800' 
                                     : 'bg-white border border-gray-200 text-gray-700'
                                 }`}
                             >
@@ -1025,7 +1025,7 @@ ${input.replace("@视频反推", "").trim()}`;
                     </button>
                 </div>
                 <div 
-                    className="max-w-6xl mx-auto bg-[#F4F4F5] rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200"
+                    className="max-w-6xl mx-auto bg-zinc-100 rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200"
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
                 >
@@ -1033,12 +1033,12 @@ ${input.replace("@视频反推", "").trim()}`;
                          {attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2 max-h-[120px] overflow-y-auto px-1">
                                 {attachments.map((att, i) => (
-                                    <div key={i} className="flex items-center gap-2 bg-[#E0F2F1] text-[#00695C] px-3 py-2 rounded-xl text-sm border border-[#B2DFDB] max-w-full w-fit animate-in fade-in zoom-in-95">
+                                    <div key={i} className="flex items-center gap-2 bg-teal-50 text-teal-800 px-3 py-2 rounded-xl text-sm border border-teal-200 max-w-full w-fit animate-in fade-in zoom-in-95">
                                         <div className="shrink-0">
                                            {getIconForType(att.type)}
                                         </div>
                                         <span className="truncate max-w-[150px] font-medium" title={att.file.name}>{att.file.name}</span>
-                                        <button onClick={() => removeAttachment(i)} className="text-[#00695C] hover:text-[#D32F2F] ml-1 p-0.5 hover:bg-[#B2DFDB] rounded-full transition-colors">
+                                        <button onClick={() => removeAttachment(i)} className="text-teal-800 hover:text-red-700 ml-1 p-0.5 hover:bg-teal-200 rounded-full transition-colors">
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -1211,12 +1211,12 @@ const PriceView = () => {
     };
 
     return (
-        <div className="p-0 overflow-y-auto no-scrollbar flex-1 bg-[#F8FAFC]">
+        <div className="p-0 overflow-y-auto no-scrollbar flex-1 bg-slate-50">
             {PRICE_DATA.map((cat, idx) => (
                 <div key={idx} className="border-b-2 border-black last:border-b-0">
                   <div 
                     onClick={() => toggle(idx)}
-                    className="bg-brand-yellow px-5 py-2 border-b border-black flex items-center justify-between gap-2 sticky top-0 z-10 shadow-sm cursor-pointer hover:bg-[#e6c000] transition-colors select-none"
+                    className="bg-brand-yellow px-5 py-2 border-b border-black flex items-center justify-between gap-2 sticky top-0 z-10 shadow-sm cursor-pointer hover:bg-yellow-500 transition-colors select-none"
                   >
                     <div className="flex items-center gap-3">
                         <span className="text-xl font-bold uppercase tracking-tight">{cat.category}</span>
@@ -3422,7 +3422,7 @@ const App = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F1F5F9] md:h-screen overflow-hidden text-black font-sans" 
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-100 md:h-screen overflow-hidden text-black font-sans" 
          onMouseMove={handleContainerMouseMove} 
          onMouseUp={handleContainerMouseUp}>
       
@@ -3471,14 +3471,14 @@ const App = () => {
                 />
              </div>
         ) : mainCategory === 'resources' ? (
-            <div className="flex-1 bg-[#F8FAFC] overflow-y-auto p-4 md:p-8 min-h-0">
+            <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 min-h-0">
                 <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-500">
                     {/* Header Hero */}
-                    <div className="bg-[#4ADE80] border-2 border-black p-8 md:p-12 brutalist-shadow text-white relative overflow-hidden group">
+                    <div className="bg-brand-green border-2 border-black p-8 md:p-12 brutalist-shadow text-white relative overflow-hidden group">
                          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-black/10 skew-x-[-20deg] translate-x-1/2 group-hover:translate-x-1/3 transition-transform duration-700"></div>
                          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                             <div className="space-y-4">
-                                <div className="inline-flex items-center gap-2 bg-white text-[#4ADE80] border-2 border-black px-3 py-1 text-xs font-black uppercase tracking-wider">
+                                <div className="inline-flex items-center gap-2 bg-white text-brand-green border-2 border-black px-3 py-1 text-xs font-black uppercase tracking-wider">
                                     <FolderOpen className="w-4 h-4 fill-current" />
                                     Useful Tools
                                 </div>
@@ -3536,7 +3536,7 @@ const App = () => {
                 </div>
             </div>
         ) : mainCategory === 'proxy' ? (
-            <div className="flex-1 bg-[#F8FAFC] overflow-y-auto p-4 md:p-8 min-h-0">
+            <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 min-h-0">
                 <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-500">
                     
                     {/* Header Hero */}
@@ -4123,21 +4123,21 @@ const App = () => {
                   {/* Updated Toolbar matching the provided image style */}
                   {!isAudioMode && (
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#F7CE00] text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-yellow text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <><Wand2 className="w-3.5 h-3.5"/> AI</>}
                     </button>
-                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#3B82F6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-blue text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                         <Palette className="w-3.5 h-3.5"/> 风格镜头
                     </button>
-                    <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#A855F7] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-purple text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       <Bookmark className="w-3.5 h-3.5"/> 词库
                     </button>
                     
                     <div className="flex gap-2 ml-auto">
-                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="w-9 h-9 flex items-center justify-center bg-[#F472B6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
+                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="w-9 h-9 flex items-center justify-center bg-brand-pink text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
                         <Save className="w-4 h-4"/>
                       </button>
-                      <button onClick={() => setActiveModal('edit-prompt')} className="w-9 h-9 flex items-center justify-center bg-[#4ADE80] text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
+                      <button onClick={() => setActiveModal('edit-prompt')} className="w-9 h-9 flex items-center justify-center bg-brand-green text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
                         <Maximize2 className="w-4 h-4"/>
                       </button>
                       <button onClick={() => { setPrompt(''); setDialogueLines([]); }} className="w-9 h-9 flex items-center justify-center bg-white text-black border border-black font-normal text-xs brutalist-shadow-sm hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all" title="清空">
@@ -4373,9 +4373,9 @@ const App = () => {
                         )}
                      </div>
                   ) : asset.status === 'failed' ? (
-                     <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-[#f8fafc]">
-                        <Frown className="w-16 h-16 text-[#808080] mb-3" strokeWidth={1.5} />
-                        <span className="font-normal text-sm text-[#808080] tracking-wide">生成失败</span>
+                     <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50">
+                        <Frown className="w-16 h-16 text-gray-500 mb-3" strokeWidth={1.5} />
+                        <span className="font-normal text-sm text-gray-500 tracking-wide">生成失败</span>
                      </div>
                   ) : asset.type === 'image' ? (
                     <img src={asset.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -4385,7 +4385,7 @@ const App = () => {
                     </div>
                   ) : (
                     // Audio Card Content
-                    <div className="w-full h-full flex flex-col items-center justify-center relative bg-[#E0E7FF] p-6">
+                    <div className="w-full h-full flex flex-col items-center justify-center relative bg-indigo-100 p-6">
                         {asset.coverUrl ? (
                             <img src={asset.coverUrl} className="absolute inset-0 w-full h-full object-cover opacity-50 blur-[2px]" />
                         ) : null}
@@ -4630,7 +4630,7 @@ const App = () => {
                     value={mainCategory === 'chat' ? chatInput : prompt} 
                     onChange={(e) => mainCategory === 'chat' ? setChatInput(e.target.value) : setPrompt(e.target.value)} 
                     placeholder="在此输入详细的提示词..." 
-                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed italic" 
+                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-slate-50 focus:outline-none brutalist-input resize-none leading-relaxed italic" 
                 />
                 <div className="flex justify-between items-center pt-2">
                     <div className="text-xs text-slate-500 font-normal uppercase italic">
@@ -4669,7 +4669,7 @@ const App = () => {
                         }
                     }} 
                     placeholder="在此输入台词..." 
-                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed italic" 
+                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-slate-50 focus:outline-none brutalist-input resize-none leading-relaxed italic" 
                 />
                 <div className="flex justify-between items-center pt-2">
                     <div className="text-xs text-slate-500 font-normal uppercase italic">
@@ -4703,7 +4703,7 @@ const App = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 md:p-4">
           <div className="w-[900px] max-w-full bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative flex flex-col max-h-[85vh]">
             <ModalHeader title="风格与镜头 / STYLES & CAMERA" icon={Palette} onClose={() => setActiveModal(null)} />
-            <div className="flex-1 p-4 md:p-5 overflow-y-auto no-scrollbar bg-[#f8fafc]">
+            <div className="flex-1 p-4 md:p-5 overflow-y-auto no-scrollbar bg-slate-50">
               
               {renderStyleSection('艺术风格 (Art Styles)', STYLES.map(s => s.zh), false)}
               
