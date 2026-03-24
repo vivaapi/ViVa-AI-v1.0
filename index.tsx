@@ -222,17 +222,6 @@ const MODEL_CAPABILITIES: Record<string, { image: boolean; audio: boolean; video
 
 const VIDEO_MODELS = [
   { 
-    id: 'sora-2', 
-    name: 'Sora-2', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '4', q: '标清'}, 
-      {s: '8', q: '标清'},
-      {s: '12', q: '标清'}
-    ] 
-  },
-  { 
     id: 'sora-2-all', 
     name: 'Sora-2-All', 
     desc: '标清视频', 
@@ -243,12 +232,14 @@ const VIDEO_MODELS = [
     ] 
   },
   { 
-    id: 'sora-2-vip-all', 
-    name: 'Sora-2-vip-all', 
+    id: 'sora-2', 
+    name: 'Sora-2(官转按秒计费)', 
     desc: '标清视频', 
     supportedAspectRatios: ['9:16', '16:9'],
     options: [
-      {s: '10', q: '标清'}
+      {s: '4', q: '标清'}, 
+      {s: '8', q: '标清'},
+      {s: '12', q: '标清'}
     ] 
   },
   { id: 'veo_3_1-fast', name: 'veo_3_1-fast', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
@@ -1166,8 +1157,7 @@ const PRICE_DATA = [
     category: '视频创作',
     items: [
       { m: 'Sora-2-all', p: 'default分组 0.14元/条' },
-      { m: 'Sora-2-vip-all（成功率低）', p: 'sora-vip分组 1.75元/条' },
-      { m: 'Sora-2', p: <div className="flex flex-col items-end text-right">
+      { m: 'Sora-2(官转按秒计费)', p: <div className="flex flex-col items-end text-right">
         <div>官转 0.21元/秒</div>
         <div>官转Open AI分组 0.42元/秒</div>
         <div>优质官转Open AI分组 0.56元/秒</div>
