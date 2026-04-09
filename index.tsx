@@ -1,4 +1,12 @@
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 import { createRoot } from 'react-dom/client';
 import { APP_CONFIG } from './src/app_config';
 import { formatPriceString } from './pricing';
@@ -6,13 +14,13 @@ import {
   Settings, Sparkles, Video, 
   Loader2, Download,
   Bot, X, AlertCircle, Plus,
-  RefreshCw, Edit, Maximize2, Check,
+  RefreshCw, Edit, Edit3, Maximize2, Check,
   Square, CheckSquare, ExternalLink,
   History, Copy, ClipboardCheck, Trash2,
-  Palette, Bookmark, Wand2, GripVertical, Save,
+  Palette, Bookmark, Wand2, GripVertical, Save, Play, Pause,
   Image as ImageIcon, BookOpen, MessageCircleQuestion, Shield, BadgeDollarSign,
   Paperclip, FileText, Music, Mic, Volume2,
-  User, VolumeX, AudioLines, MessageSquare,
+  User, VolumeX, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
   ChevronDown, Brush, Brain, Monitor, FolderOpen, Frown,
   Link, Globe, Bell
@@ -91,7 +99,7 @@ interface ChatMessage {
     role: 'user' | 'model' | 'system';
     text: string;
     displayText?: string;
-    files?: { type: string; data: string; file?: File }[];
+    files?: { type: string; data: string; file?: File; extractedText?: string }[];
     error?: boolean;
     isDivider?: boolean;
 }
@@ -154,7 +162,7 @@ const MODELS: ModelDefinition[] = [
     features: ['fast', 'preview'],
     maxImages: 4,
     supportedAspectRatios: GEMINI_3_1_RATIOS,
-    supportedResolutions: ['0.5K', '1K', '2K', '4K']
+    supportedResolutions: ['512px', '1K', '2K', '4K']
   },
   { 
     id: 'gemini-3-pro-image-preview', 
@@ -204,52 +212,29 @@ const MODELS: ModelDefinition[] = [
 ];
 
 const CHAT_MODELS = [
-    { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash' },
     { id: 'gemini-3.1-flash-lite-preview', name: 'Gemini-3.1-Flash-Lite' },
-    { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro' },
-    { id: 'gpt-5-mini', name: 'GPT 5 Mini' },
+    { id: 'gemini-3.1-pro-preview', name: 'Gemini-3.1-Pro' },
+    { id: 'gpt-5.4', name: 'GPT 5.4' },
+    { id: 'gpt-5.4-mini', name: 'GPT 5.4 Mini' },
+    { id: 'gpt-5.4-nano', name: 'GPT 5.4 Nano' },
+    { id: 'grok-4.2', name: 'Grok-4.2暴躁哥' },
+    { id: 'grok-4.2-normal', name: 'Grok-4.2' },
 ];
 
 const MODEL_CAPABILITIES: Record<string, { image: boolean; audio: boolean; video: boolean; pdf: boolean; any?: boolean }> = {
     'gemini-2.5-flash': { image: true, audio: true, video: true, pdf: true },
     'gemini-3-flash-preview': { image: true, audio: true, video: true, pdf: true },
     'gemini-3.1-flash-lite-preview': { image: true, audio: true, video: true, pdf: true },
-    'gemini-3-pro-preview': { image: true, audio: true, video: true, pdf: true, any: true },
-    'gpt-5.2': { image: true, audio: true, video: true, pdf: true },
-    'gpt-5-mini': { image: true, audio: false, video: false, pdf: true },
+    'gemini-3.1-pro-preview': { image: true, audio: true, video: true, pdf: true, any: true },
+    'gpt-5.4': { image: true, audio: false, video: false, pdf: true },
+    'gpt-5.4-mini': { image: true, audio: false, video: false, pdf: true },
+    'gpt-5.4-nano': { image: true, audio: false, video: false, pdf: true },
     'grok-4.1': { image: true, audio: false, video: false, pdf: true },
 };
 
 const VIDEO_MODELS = [
-  { 
-    id: 'sora-2', 
-    name: 'Sora-2', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '4', q: '标清'}, 
-      {s: '8', q: '标清'},
-      {s: '12', q: '标清'}
-    ] 
-  },
-  { 
-    id: 'sora-2-all', 
-    name: 'Sora-2-All', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '10', q: '标清'}
-    ] 
-  },
-  { 
-    id: 'sora-2-vip-all', 
-    name: 'Sora-2-vip-all', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '10', q: '标清'}
-    ] 
-  },
+  { id: 'veo_3_1-lite', name: 'veo_3_1-lite', desc: '标清/首尾帧(0.35元/次)', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
+  { id: 'veo_3_1-lite-4K', name: 'veo_3_1-lite-4K', desc: '4K/首尾帧(0.385元/次)', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
   { id: 'veo_3_1-fast', name: 'veo_3_1-fast', desc: '标清/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '标清'}] },
   { id: 'veo_3_1-fast-4K', name: 'veo_3_1-fast-4K', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
   { id: 'veo_3_1-fast-components-4K', name: 'veo_3_1-fast-components-4K', desc: '4K/多图融合', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
@@ -282,8 +267,8 @@ const VIDEO_MODELS = [
     options: [
       {s: '6', q: '标清'},
       {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'},
-      {s: '15', q: '标清', modelIdOverride: 'grok-video-3-15s'},
-      {s: '15', q: '高清', modelIdOverride: 'grok-video-3-15s'}
+      {s: '15', q: '标清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true},
+      {s: '15', q: '高清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true}
     ] 
   },
   { 
@@ -303,6 +288,27 @@ const VIDEO_MODELS = [
     supportedAspectRatios: ['原图比例'],
     options: [
       {s: 'AUTO', q: '标准模式'}, {s: 'AUTO', q: '高品质模式'}
+    ] 
+  },
+  { 
+    id: 'sora-2-all', 
+    name: 'Sora-2-All', 
+    desc: '标清视频', 
+    supportedAspectRatios: ['9:16', '16:9'],
+    options: [
+      {s: '10', q: '标清'},
+      {s: '15', q: '标清'}
+    ] 
+  },
+  { 
+    id: 'sora-2', 
+    name: 'Sora-2(官转按秒计费)', 
+    desc: '标清视频', 
+    supportedAspectRatios: ['9:16', '16:9'],
+    options: [
+      {s: '4', q: '标清'}, 
+      {s: '8', q: '标清'},
+      {s: '12', q: '标清'}
     ] 
   },
   { 
@@ -533,26 +539,7 @@ const deleteAssetFromDB = async (id: string) => {
 };
 
 const renderMessageContent = (text: string) => {
-    const codeBlockRegex = /(```[\s\S]*?```)/g;
-    const segments = text.split(codeBlockRegex);
-    
-    return segments.map((segment, i) => {
-        if (segment.startsWith('```') && segment.endsWith('```')) {
-            return <span key={i}>{segment}</span>;
-        }
-        
-        const parts = segment.split(/(\*\*[\s\S]+?\*\*)/g);
-        return (
-            <span key={i}>
-                {parts.map((part, j) => {
-                     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
-                         return <strong key={j} className="font-bold">{part.slice(2, -2)}</strong>;
-                     }
-                     return part;
-                })}
-            </span>
-        );
-    });
+    return <ReactMarkdown>{text}</ReactMarkdown>;
 };
 
 // --- ChatView Component ---
@@ -565,8 +552,8 @@ interface ChatViewProps {
     setInput: React.Dispatch<React.SetStateAction<string>>;
     isLoading: boolean;
     setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
-    attachments: { file: File, preview: string, type: string }[];
-    setAttachments: React.Dispatch<React.SetStateAction<{ file: File, preview: string, type: string }[]>>;
+    attachments: { file: File, preview: string, type: string, extractedText?: string }[];
+    setAttachments: React.Dispatch<React.SetStateAction<{ file: File, preview: string, type: string, extractedText?: string }[]>>;
     setActiveModal: (modal: ModalType) => void;
     modelId: string;
     setModelId: React.Dispatch<React.SetStateAction<string>>;
@@ -598,52 +585,101 @@ const ChatView = ({
         }
     }, [input]);
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files) return;
+    const processFiles = (files: FileList | File[]) => {
+        if (!files || files.length === 0) return;
         
         const capabilities = MODEL_CAPABILITIES[modelId];
         let hasUnsupported = false;
 
         const validFiles = Array.from(files).filter((file: File) => {
-             // If model supports any file type, skip specific checks
              if (capabilities?.any) return true;
 
              let type = 'file';
              if (file.type.startsWith('image/')) type = 'image';
              else if (file.type.startsWith('audio/')) type = 'audio';
              else if (file.type.startsWith('video/')) type = 'video';
-             else if (file.type === 'application/pdf') type = 'pdf';
+             else if (file.type === 'application/pdf' || file.name.endsWith('.pdf') || file.name.endsWith('.txt') || file.name.endsWith('.doc') || file.name.endsWith('.docx') || file.type === 'text/plain') type = 'document';
              
              if (capabilities) {
                  if (type === 'image' && !capabilities.image) { hasUnsupported = true; return false; }
                  if (type === 'audio' && !capabilities.audio) { hasUnsupported = true; return false; }
                  if (type === 'video' && !capabilities.video) { hasUnsupported = true; return false; }
-                 if (type === 'pdf' && !capabilities.pdf) { hasUnsupported = true; return false; }
+                 if (type === 'document' && !capabilities.pdf) { hasUnsupported = true; return false; }
              }
              return true;
         });
 
         if (hasUnsupported) {
-            alert('该模型不支持该文件类型');
+            alert('不支持该文件格式');
         }
 
-        validFiles.forEach((file: File) => {
+        validFiles.forEach(async (file: File) => {
+            let type = 'file';
+            if (file.type.startsWith('image/')) type = 'image';
+            else if (file.type.startsWith('audio/')) type = 'audio';
+            else if (file.type.startsWith('video/')) type = 'video';
+            else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) type = 'pdf';
+            else if (file.name.endsWith('.txt') || file.type === 'text/plain') type = 'txt';
+            else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) type = 'docx';
+
+            let extractedText = '';
+
+            if (type === 'txt') {
+                extractedText = await file.text();
+            } else if (type === 'pdf') {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let text = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map((item: any) => item.str).join(' ') + '\n';
+                    }
+                    extractedText = text;
+                } catch (e) {
+                    console.error("PDF parse error", e);
+                }
+            } else if (type === 'docx') {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer });
+                    extractedText = result.value;
+                } catch (e) {
+                    console.error("DOCX parse error", e);
+                    try {
+                        extractedText = await file.text();
+                    } catch (e2) {
+                        console.error("Fallback text parse error", e2);
+                    }
+                }
+            }
+
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const result = ev.target?.result as string;
-                let type = 'file';
-                if (file.type.startsWith('image/')) type = 'image';
-                else if (file.type.startsWith('audio/')) type = 'audio';
-                else if (file.type.startsWith('video/')) type = 'video';
-                else if (file.type === 'application/pdf') type = 'pdf';
-                // else type remains 'file' for unsupported mime types if allowed by ANY
-                
-                setAttachments(prev => [...prev, { file, preview: result, type }]);
+                setAttachments(prev => [...prev, { file, preview: result, type, extractedText }]);
             };
             reader.readAsDataURL(file);
         });
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            processFiles(e.target.files);
+        }
         e.target.value = '';
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        if (e.dataTransfer.files) {
+            processFiles(e.dataTransfer.files);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
     };
 
     const removeAttachment = (idx: number) => {
@@ -683,13 +719,18 @@ const ChatView = ({
             const lastDividerIndex = history.map(m => !!m.isDivider).lastIndexOf(true);
             const activeHistory = history.slice(lastDividerIndex + 1).filter(m => !m.isDivider && m.role !== 'system');
             
-            const systemPromptText = "你是一个智能助手。请严格遵守以下规则：\n1. **语言限制**：无论用户输入什么语言，你**必须全程使用中文**进行回复（代码片段除外）。\n2. **文件分析**：如果用户上传了文件，请仔细分析文件内容并用中文回答相关问题。\n3. **禁止思考内容**：直接输出最终答案，**严禁**输出思考过程、思维链(Chain of Thought)、<think>标签或内部独白。\n4. **直接回复**：不包含无意义的开场白或客套话。";
+            let systemPromptText = "你是一个智能助手。请严格遵守以下规则：\n1. **语言限制**：无论用户输入什么语言，你**必须全程使用中文**进行回复（代码片段除外）。\n2. **文件分析**：如果用户上传了文件，请仔细分析文件内容并用中文回答相关问题。\n3. **禁止思考内容**：直接输出最终答案，**严禁**输出思考过程、思维链(Chain of Thought)、<think>标签或内部独白。\n4. **直接回复**：不包含无意义的开场白或客套话。";
+            
+            if (currentModelId === 'grok-4.2') {
+                systemPromptText = "你是一个AI助手，你的性格暴躁，缺乏耐心，说话粗鲁带脏话；爱抬杠、爱抱怨，言语刻薄，喜欢贬低别人；遇事推卸责任，敏感多疑，情绪不稳定；爱开黄腔，口无遮拦。请严格遵守以下规则：\n1. **语言限制**：必须全程使用中文进行回复。\n2. **禁止思考内容**：直接输出最终答案，严禁输出思考过程、思维链或内部独白。\n3. **直接回复**：不包含无意义的客套话，完全代入上述人设进行回答。";
+            }
+            
             let responseText = "";
             let targetModelId = currentModelId;
 
-            // Handle Thinking Variant for Gemini 3 Pro
-            if (currentModelId === 'gemini-3-pro-preview' && isThinking) {
-                targetModelId = 'gemini-3-pro-preview-thinking';
+            // Handle Thinking Variant for Gemini 3.1 Pro
+            if (currentModelId === 'gemini-3.1-pro-preview' && isThinking) {
+                targetModelId = 'gemini-3.1-pro-preview-thinking';
             }
 
             // OpenAI Compatible format for all chat models (including Gemini via proxy)
@@ -703,10 +744,22 @@ const ChatView = ({
                     const content: any[] = [{ type: "text", text: msg.text }];
                     msg.files.forEach(f => {
                          const isGemini = targetModelId.startsWith('gemini');
-                         if (f.type === 'image' || (f.file && f.file.type.startsWith('image/')) || isGemini) {
+                         if (f.type === 'image' || (f.file && f.file.type.startsWith('image/'))) {
                              content.push({
                                  type: "image_url",
                                  image_url: { url: f.data }
+                             });
+                         } else if (isGemini && (f.type === 'audio' || f.type === 'video')) {
+                             content.push({
+                                 type: "image_url",
+                                 image_url: { url: f.data }
+                             });
+                         }
+                         
+                         if (f.extractedText) {
+                             content.push({
+                                 type: "text",
+                                 text: `\n--- 文件内容 (${f.file?.name || 'document'}) ---\n${f.extractedText}\n--- 文件结束 ---\n`
                              });
                          }
                     });
@@ -830,7 +883,7 @@ ${input.replace("@视频反推", "").trim()}`;
             role: 'user',
             text: finalInput,
             displayText: displayText,
-            files: attachments.map(a => ({ type: a.type, data: a.preview, file: a.file }))
+            files: attachments.map(a => ({ type: a.type, data: a.preview, file: a.file, extractedText: a.extractedText }))
         };
 
         const newHistory = [...messages, userMsg];
@@ -859,6 +912,7 @@ ${input.replace("@视频反推", "").trim()}`;
     };
 
     const handleNewTopic = () => {
+        stopGeneration();
         setMessages([{ role: 'model', text: INITIAL_CHAT_MESSAGE_TEXT }]);
         setInput('');
         setAttachments([]);
@@ -866,10 +920,12 @@ ${input.replace("@视频反推", "").trim()}`;
     };
 
     const handleClearInput = () => {
+        stopGeneration();
         setInput('');
     };
     
     const handleClearContext = () => {
+        stopGeneration();
         // Prevent adding multiple dividers in a row
         if (messages.length > 0 && !messages[messages.length - 1].isDivider) {
              setMessages(prev => [...prev, { role: 'system', text: '上下文已清除 / Context Cleared', isDivider: true }]);
@@ -887,7 +943,7 @@ ${input.replace("@视频反推", "").trim()}`;
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#fdfdfd] border-t-0 border-black relative">
+        <div className="flex flex-col h-full bg-white border-t-0 border-black relative">
             {/* Top Bar - Model Selection */}
             <div className="border-b border-gray-100 bg-white relative z-50">
                 <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
@@ -926,7 +982,11 @@ ${input.replace("@视频反推", "").trim()}`;
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-white no-scrollbar pb-80">
+            <div 
+                className="flex-1 overflow-y-auto bg-white no-scrollbar pb-80"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+            >
                 <div className="max-w-6xl mx-auto p-4 space-y-6">
                 {messages.map((msg, idx) => {
                     if (msg.isDivider) {
@@ -944,7 +1004,7 @@ ${input.replace("@视频反推", "").trim()}`;
                             <div 
                                 className={`max-w-[85%] p-4 text-base leading-relaxed shadow-sm rounded-2xl
                                 ${msg.role === 'user' 
-                                    ? 'bg-[#F4F4F5] text-gray-800' 
+                                    ? 'bg-zinc-100 text-gray-800' 
                                     : 'bg-white border border-gray-200 text-gray-700'
                                 }`}
                             >
@@ -953,7 +1013,7 @@ ${input.replace("@视频反推", "").trim()}`;
                                         {msg.files.map((f, i) => (
                                             <div key={i} className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${msg.role === 'user' ? 'bg-white' : 'bg-gray-100'}`}>
                                                 {getIconForType(f.type === 'application/pdf' ? 'pdf' : f.type.split('/')[0])}
-                                                {f.type.includes('image') ? 'Image' : 'File'}
+                                                {f.file ? f.file.name : (f.type.includes('image') ? 'Image' : 'File')}
                                             </div>
                                         ))}
                                     </div>
@@ -1004,17 +1064,21 @@ ${input.replace("@视频反推", "").trim()}`;
                         <Video className="w-4 h-4" /> 视频反推
                     </button>
                 </div>
-                <div className="max-w-6xl mx-auto bg-[#F4F4F5] rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200">
+                <div 
+                    className="max-w-6xl mx-auto bg-zinc-100 rounded-xl p-3 relative flex flex-col transition-all focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-100 border border-transparent focus-within:border-gray-200"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                >
                     <div className="flex-1 relative px-2 pt-2">
                          {attachments.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-2 max-h-[120px] overflow-y-auto px-1">
                                 {attachments.map((att, i) => (
-                                    <div key={i} className="flex items-center gap-2 bg-[#E0F2F1] text-[#00695C] px-3 py-2 rounded-xl text-sm border border-[#B2DFDB] max-w-full w-fit animate-in fade-in zoom-in-95">
+                                    <div key={i} className="flex items-center gap-2 bg-teal-50 text-teal-800 px-3 py-2 rounded-xl text-sm border border-teal-200 max-w-full w-fit animate-in fade-in zoom-in-95">
                                         <div className="shrink-0">
                                            {getIconForType(att.type)}
                                         </div>
                                         <span className="truncate max-w-[150px] font-medium" title={att.file.name}>{att.file.name}</span>
-                                        <button onClick={() => removeAttachment(i)} className="text-[#00695C] hover:text-[#D32F2F] ml-1 p-0.5 hover:bg-[#B2DFDB] rounded-full transition-colors">
+                                        <button onClick={() => removeAttachment(i)} className="text-teal-800 hover:text-red-700 ml-1 p-0.5 hover:bg-teal-200 rounded-full transition-colors">
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
@@ -1027,6 +1091,17 @@ ${input.replace("@视频反推", "").trim()}`;
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                             placeholder="在这里输入消息，按 Enter 发送"
+                            onPaste={(e) => {
+                                const items = e.clipboardData.items;
+                                for (let i = 0; i < items.length; i++) {
+                                    if (items[i].type.indexOf("image") !== -1) {
+                                        const file = items[i].getAsFile();
+                                        if (file) {
+                                            processFiles([file]);
+                                        }
+                                    }
+                                }
+                            }}
                             className="w-full bg-transparent border-none resize-none focus:ring-0 outline-none text-base text-gray-800 placeholder:text-gray-400 min-h-[72px] max-h-[144px] overflow-y-auto chat-input-scrollbar"
                         />
                     </div>
@@ -1041,15 +1116,14 @@ ${input.replace("@视频反推", "").trim()}`;
                                     ref={fileInputRef} 
                                     className="hidden" 
                                     multiple 
-                                    accept={MODEL_CAPABILITIES[modelId]?.any ? "*" : "image/*,audio/*,video/*,application/pdf"}
+                                    accept="*"
                                     onChange={handleFileSelect}
                                  />
                              </button>
                              <button onClick={() => setActiveModal('library')} className="text-gray-600 hover:bg-gray-200 rounded-full p-2 transition-colors" title="快捷短语"><Zap className="w-5 h-5"/></button>
                              <button onClick={handleClearInput} className="text-gray-600 hover:bg-gray-200 rounded-full p-2 transition-colors" title="清空输入"><Brush className="w-5 h-5"/></button>
-                             <button onClick={() => setActiveModal('edit-prompt')} className="text-gray-600 hover:bg-gray-200 rounded-full p-2 transition-colors" title="展开"><Maximize2 className="w-5 h-5"/></button>
                              <button onClick={handleClearContext} className="text-gray-600 hover:bg-gray-200 rounded-full p-2 transition-colors" title="清除上下文"><Eraser className="w-5 h-5"/></button>
-                             {modelId === 'gemini-3-pro-preview' && (
+                             {modelId === 'gemini-3.1-pro-preview' && (
                                 <button
                                    onClick={() => setIsThinking(!isThinking)}
                                    className={`rounded-full p-2 transition-colors ${isThinking ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-200'}`}
@@ -1117,118 +1191,266 @@ const ModalHeader = ({ title, icon: Icon, onClose, bgColor = "bg-brand-yellow" }
 
 const PRICE_DATA = [
   {
-    category: 'AI对话',
+    category: '文本模型',
     items: [
-      { m: 'Gemini-3-Flash', p: '提示0.210元/ 1M tokens，补全1.260元/ 1M tokens' },
-      { m: 'Gemini-3.1-Flash-Lite', p: '提示0.0.525元/ 1.00M tokens，补全3.150元/ 1.00M tokens' },
-      { m: 'Gemini-3-Pro', p: '提示0.840元/ 1M tokens，补全5.040元/ 1M tokens' },
-      { m: 'GPT-5-Mini', p: '提示0.105元/ 1M tokens，补全0.840元/ 1M tokens' }
+      { m: 'Gemini-3.1-Flash-Lite', p: '提示0.263元/1M tokens，补全1.575元/1M tokens' },
+      { m: 'Gemini-3.1-Pro', p: '提示1.120元/1M tokens，补全6.720元/1M tokens' },
+      { m: 'GPT-5.4', p: '提示1.050元/1M tokens，补全6.300元/1M tokens' },
+      { m: 'GPT-5.4-Mini', p: '提示0.315元/1M tokens，补全1.890元/1M tokens' },
+      { m: 'GPT-5.4-Nano', p: '提示0.084元/1M tokens，补全0.504元/1M tokens' },
+      { m: 'Grok-4.2', p: '提示2.100元/1M tokens，补全10.500元/1M tokens' }
     ]
   },
   {
-    category: '图片创作',
+    category: '图片模型',
     items: [
       { m: 'Gemini-2.5-Flash-Image', p: '0.063元/张' },
-      { m: 'Gemini-3.1-Flash-Image', p: '1K/2K 0.070元/张，4K 0.087元/张' },
-      { m: 'Gemini-3-Pro-Image', p: '1K/2K 0.139元/张，4K 0.248元/张' },
-      { m: 'KLING Image O1', p: '0.241元/张' },
-      { m: 'GPT Image 1', p: '0.056元/张' },
-      { m: 'GPT Image 1.5', p: '0.056元/张' },
+      { m: 'Gemini-3.1-Flash-Image', p: '1K/2K 0.116元/张，4K 0.207元/张' },
+      { m: 'Gemini-3-Pro-Image', p: '1K/2K 0.231元/张，4K 0.414元/张' },
+      { m: 'Kling Image O1', p: '0.238元/张' },
+      { m: 'GPT Image 1', p: '0.055元/张' },
+      { m: 'GPT Image 1.5', p: '0.055元/张' },
       { m: 'Grok 4 Image', p: '0.056元/张' },
     ]
   },
   {
-    category: '视频创作',
+    category: '视频模型',
     items: [
-      { m: 'Sora-2-all', p: '0.140元/条' },
-      { m: 'Sora-2-vip-all', p: '1.750元/条' },
-      { m: 'Sora-2', p: <div className="flex flex-col items-end text-right">
-        <div>官转 0.210元/秒</div>
-        <div>官转OpenAI分组 0.420元/秒</div>
-        <div>优质官转OpenAI分组 0.560元/秒</div>
-      </div> },
-      { m: 'Sora-2-Pro-All', p: '2.520元/条' },
-      { m: 'veo_3_1-fast', p: '0.181元/条' },
-      { m: 'veo_3_1-fast-4K', p: '0.181元/条' },
-      { m: 'veo_3_1-fast-components-4K', p: '0.361元/条' },
-      { m: 'veo_3_1', p: '0.307元/条' },
-      { m: 'veo_3_1-4K', p: '0.357元/条' },
-      { m: 'veo_3_1-components', p: '0.307元/条' },
-      { m: 'veo_3_1-components-4K', p: '0.357元/条' },
+      { m: 'veo_3_1-lite', p: '0.350元/条' },
+      { m: 'veo_3_1-lite-4K', p: '0.385元/条' },
+      { m: 'veo_3_1-fast', p: '0.301元/条' },
+      { m: 'veo_3_1-fast-4K', p: '0.301元/条' },
+      { m: 'veo_3_1-fast-components-4K', p: '0.602元/条' },
+      { m: 'veo_3_1', p: '0.511元/条' },
+      { m: 'veo_3_1-4K', p: '0.595元/条' },
+      { m: 'veo_3_1-components', p: '0.511元/条' },
+      { m: 'veo_3_1-components-4K', p: '0.595元/条' },
       { m: 'veo3.1-fast', p: '0.490元/条' },
-      { m: 'veo3.1-fast-components', p: '0.109元/条' },
+      { m: 'veo3.1-fast-components', p: '0.182元/条' },
       { m: 'veo3.1', p: '0.490元/条' },
       { m: 'veo3.1-4k', p: '0.700元/条' },
-      { m: 'veo3.1-components', p: '0.294元/条' },
+      { m: 'veo3.1-components', p: '0.490元/条' },
       { m: 'veo3.1-components-4k', p: '0.700元/条' },
       { m: 'veo3.1-pro-4k', p: '2.450元/条' },
-      { m: 'Grok Video 3', p: '0.140元/6秒，0.280元/10秒，0.350元/15秒' },
-      { m: 'KLING Control Std (动作转移)', p: '0.595元/秒' },
-      { m: 'KLING Control Pro (动作转移)', p: '0.952元/秒' },
+      { m: 'Grok Video 3', p: '0.280元/6秒，0.280元/10秒' },
+      { m: 'Kling Control Std (动作转移)', p: '0.595元/秒' },
+      { m: 'Kling Control Pro (动作转移)', p: '0.952元/秒' },
+      { m: 'KLING Avatar Std (数字人)', p: '1.190元/秒' },
+      { m: 'KLING Avatar Pro (数字人)', p: '2.380元/秒' },
+      { m: 'Sora-2-all', p: 'default分组 0.14元/条' },
+      { m: 'Sora-2(官转按秒计费)', p: <div className="flex flex-col items-end text-right">
+        <div>官转 0.21元/秒</div>
+        <div>官转Open AI分组 0.42元/秒</div>
+        <div>优质官转Open AI分组 0.56元/秒</div>
+      </div> },
+      { m: 'Sora-2-Pro-All', p: '2.520元/条' },
     ]
   },
   {
     category: '语音合成',
     items: [
-      { m: 'Gemini 2.5 Pro TTS', p: '提示0.700元/ 1M tokens，补全14.000元/ 1M tokens' },
+      { m: 'Gemini 2.5 Pro TTS', p: '提示1.05元/ 1M tokens，补全21.00元/ 1M tokens' },
     ]
   }
 ];
 
 const PriceView = () => {
-    const [expanded, setExpanded] = useState<Record<number, boolean>>(
-        PRICE_DATA.reduce((acc, cat, idx) => ({...acc, [idx]: cat.category === '图片创作'}), {})
-    );
-
-    const toggle = (idx: number) => {
-        setExpanded(prev => ({...prev, [idx]: !prev[idx]}));
-    };
-
     return (
-        <div className="p-0 overflow-y-auto no-scrollbar flex-1 bg-[#F8FAFC]">
+        <div className="p-4 md:p-6 overflow-y-auto no-scrollbar flex-1 bg-white space-y-6">
             {PRICE_DATA.map((cat, idx) => (
-                <div key={idx} className="border-b-2 border-black last:border-b-0">
-                  <div 
-                    onClick={() => toggle(idx)}
-                    className="bg-brand-yellow px-5 py-2 border-b border-black flex items-center justify-between gap-2 sticky top-0 z-10 shadow-sm cursor-pointer hover:bg-[#e6c000] transition-colors select-none"
-                  >
-                    <div className="flex items-center gap-3">
-                        <span className="text-xl font-bold uppercase tracking-tight">{cat.category}</span>
+                <div key={idx} className="border-2 border-black rounded-xl p-4 md:p-5 bg-white">
+                    <div className="border-b-[3px] border-black pb-2 mb-4">
+                        <h3 className="text-xl font-bold text-black">{cat.category}</h3>
                     </div>
-                    <ChevronDown className={`w-6 h-6 transition-transform duration-300 ${expanded[idx] ? 'rotate-180' : 'rotate-0'}`} />
-                  </div>
-                  
-                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expanded[idx] ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                      <div className="divide-y divide-black/5 bg-white">
-                        {cat.items.map((item, iidx) => (
-                          <div key={iidx} className="flex justify-between items-center px-6 py-2 hover:bg-brand-cream transition-colors group">
-                            <span className="text-lg font-medium text-slate-800 group-hover:text-black">{item.m}</span>
-                            <span className="text-base font-medium text-black">
-                                {typeof item.p === 'string' ? formatPriceString(item.p) : (
-                                  <div className="flex flex-col items-end text-right">
-                                    {/* 递归处理 JSX 中的文本内容 */}
+                    <div className="space-y-2.5">
+                        {cat.items.map((item, iidx) => {
+                            const isTextModel = cat.category === '文本模型';
+                            const decimals = isTextModel ? 3 : undefined;
+                            
+                            let priceContent;
+                            if (typeof item.p === 'string') {
+                                if (item.p.includes('，')) {
+                                    const parts = item.p.split('，');
+                                    priceContent = (
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-12 text-gray-500 text-sm font-medium">
+                                            {parts.map((p, i) => <span key={i}>{formatPriceString(p.trim(), decimals)}</span>)}
+                                        </div>
+                                    );
+                                } else {
+                                    priceContent = <span className="text-gray-500 text-sm font-medium">{formatPriceString(item.p, decimals)}</span>;
+                                }
+                            } else {
+                                priceContent = (
+                                  <div className="flex flex-col items-end text-right text-gray-500 text-sm font-medium">
                                     {React.Children.map(item.p.props.children, (child) => {
-                                      if (typeof child === 'string') return <div>{formatPriceString(child)}</div>;
+                                      if (typeof child === 'string') return <div>{formatPriceString(child, decimals)}</div>;
                                       if (React.isValidElement(child)) {
                                         return React.cloneElement(child as React.ReactElement, {
                                           children: React.Children.map((child as React.ReactElement).props.children, (c) => 
-                                            typeof c === 'string' ? formatPriceString(c) : c
+                                            typeof c === 'string' ? formatPriceString(c, decimals) : c
                                           )
                                         });
                                       }
                                       return child;
                                     })}
                                   </div>
-                                )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                  </div>
+                                );
+                            }
+
+                            return (
+                                <div key={iidx} className="flex flex-col md:flex-row justify-between items-start md:items-center px-4 py-2.5 border-2 border-black rounded-lg bg-white gap-2">
+                                    <span className="text-base font-bold text-black">{item.m}</span>
+                                    {priceContent}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             ))}
         </div>
     );
+};
+
+const BrutalistAudioPlayer = ({ src, coverUrl }: { src: string, coverUrl?: string }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const onTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+      setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0);
+    }
+  };
+
+  const onLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const onEnded = () => {
+    setIsPlaying(false);
+    setProgress(0);
+    setCurrentTime(0);
+  };
+
+  const handleProgressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newProgress = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = (newProgress / 100) * audioRef.current.duration;
+      setProgress(newProgress);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center relative bg-zinc-900 p-6 overflow-hidden select-none">
+      {/* Background Glow */}
+      <div className={`absolute inset-0 bg-brand-yellow/5 transition-opacity duration-1000 ${isPlaying ? 'opacity-100' : 'opacity-0'}`} />
+      
+      <audio 
+        ref={audioRef} 
+        src={src} 
+        onTimeUpdate={onTimeUpdate} 
+        onLoadedMetadata={onLoadedMetadata} 
+        onEnded={onEnded}
+      />
+
+      <div className="relative z-10 flex flex-col items-center w-full max-w-[200px]">
+        {/* Spinning Disk / Cover */}
+        <div className="relative mb-8 group">
+          <div className={`w-28 h-28 rounded-full border-4 border-black brutalist-shadow-lg overflow-hidden relative z-20 transition-transform duration-[5000ms] linear ${isPlaying ? 'rotate-[360deg] animate-[spin_8s_linear_infinite]' : ''}`}>
+            {coverUrl ? (
+              <img src={coverUrl} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-brand-yellow flex items-center justify-center">
+                <Music className="w-12 h-12 text-black" />
+              </div>
+            )}
+            {/* Center Hole */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-6 h-6 bg-zinc-900 border-2 border-black rounded-full shadow-inner flex items-center justify-center">
+                <div className="w-1 h-1 bg-white rounded-full" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Play/Pause Overlay Button */}
+          <button 
+            onClick={togglePlay}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white border-2 border-black rounded-full flex items-center justify-center brutalist-shadow hover:scale-110 active:scale-95 transition-all z-30 opacity-90 hover:opacity-100"
+          >
+            {isPlaying ? <Pause className="w-8 h-8 text-black fill-current" /> : <Play className="w-8 h-8 text-black fill-current ml-1" />}
+          </button>
+        </div>
+
+        {/* Progress & Controls */}
+        <div className="w-full space-y-3">
+          <div className="flex justify-between items-end">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest text-brand-yellow/60 leading-none mb-1">Now Playing</span>
+              <span className="text-xs font-bold text-white uppercase tracking-tighter truncate max-w-[120px]">Audio Track</span>
+            </div>
+            <div className="text-[10px] font-mono text-brand-yellow bg-black px-1.5 py-0.5 border border-brand-yellow/30">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </div>
+          </div>
+          
+          <div className="relative h-2 bg-zinc-800 border border-zinc-700 overflow-hidden">
+             <div 
+               className="absolute top-0 left-0 h-full bg-brand-yellow transition-all duration-100"
+               style={{ width: `${progress}%` }}
+             />
+             <input 
+               type="range" 
+               min="0" 
+               max="100" 
+               step="0.1"
+               value={progress} 
+               onChange={handleProgressChange}
+               onClick={(e) => e.stopPropagation()}
+               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+             />
+          </div>
+          
+          {/* Visualizer Mockup */}
+          <div className="flex items-end justify-between h-4 gap-0.5 px-1">
+            {[...Array(12)].map((_, i) => (
+              <div 
+                key={i} 
+                className={`w-full bg-brand-yellow/40 transition-all duration-300 ${isPlaying ? 'animate-pulse' : 'h-1'}`}
+                style={{ 
+                  height: isPlaying ? `${Math.random() * 100}%` : '20%',
+                  animationDelay: `${i * 0.1}s`
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const App = () => {
@@ -1240,7 +1462,7 @@ const App = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([{ role: 'model', text: INITIAL_CHAT_MESSAGE_TEXT }]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
-  const [chatAttachments, setChatAttachments] = useState<{ file: File, preview: string, type: string }[]>([]);
+  const [chatAttachments, setChatAttachments] = useState<{ file: File, preview: string, type: string, extractedText?: string }[]>([]);
   const [chatModelId, setChatModelId] = useState('gemini-3-flash-preview');
 
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
@@ -1288,7 +1510,7 @@ const App = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [draggedPromptIdx, setDraggedPromptIdx] = useState<number | null>(null);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([]);
+  const [dialogueLines, setDialogueLines] = useState<DialogueLine[]>([{ id: generateUUID(), speakerId: '1', text: '' }]);
   const [seedanceDuration, setSeedanceDuration] = useState(10);
   
   // Library State & other states...
@@ -1314,6 +1536,7 @@ const App = () => {
     { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' },
     { id: 'img-url', name: '图片转URL链接', desc: '快速将图片转换为在线URL链接。', url: 'https://lsky.zhongzhuan.chat', icon: 'Link' },
     { id: 'watermark', name: '图片/PDF去水印', desc: 'Pilio.ai - 专业的图片与PDF在线去水印工具。', url: 'https://pilio.ai/zh', icon: 'Eraser' },
+    { id: 'md-editor', name: 'Markdown编辑器', desc: '在线 Markdown 实时编辑器，支持一边写一边预览效果，并可快速发布文档。', url: 'https://doocs.gitee.io/md', icon: 'FileText' },
     { id: 'vpn', name: '科学上网（付费）', desc: '高速稳定的网络加速服务。', url: 'https://caomei888.top/#/register?code=iPB4QjfQ', icon: 'Globe' }
   ]);
   const [draggedResourceIdx, setDraggedResourceIdx] = useState<number | null>(null);
@@ -1810,8 +2033,7 @@ const App = () => {
   }, [selectedModel, selectedVideoModel, isVideoMode, referenceImages.length]);
 
   // ... (Other handlers are reused directly from original code) ...
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processImageFiles = (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     const currentModel = MODELS.find(m => m.id === selectedModel);
@@ -1869,11 +2091,16 @@ const App = () => {
       };
       reader.readAsDataURL(file as Blob);
     });
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        processImageFiles(e.target.files);
+    }
     e.target.value = '';
   };
 
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processVideoFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     if (selectedVideoModel === 'seedance-2.0') {
@@ -1932,11 +2159,16 @@ const App = () => {
             setError(`无法读取视频文件 ${file.name}`);
         }
     }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        await processVideoFiles(e.target.files);
+    }
     e.target.value = '';
   };
   
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const processAudioFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
     
     if (selectedVideoModel === 'seedance-2.0') {
@@ -2009,7 +2241,37 @@ const App = () => {
              setError(`无法读取音频文件 ${file.name}`);
         }
     }
+  };
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        await processAudioFiles(e.target.files);
+    }
     e.target.value = '';
+  };
+
+  const handleDropMain = async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (!files || files.length === 0) return;
+
+      const imageFiles: File[] = [];
+      const videoFiles: File[] = [];
+      const audioFiles: File[] = [];
+
+      Array.from(files).forEach(file => {
+          if (file.type.startsWith('image/')) imageFiles.push(file);
+          else if (file.type.startsWith('video/')) videoFiles.push(file);
+          else if (file.type.startsWith('audio/')) audioFiles.push(file);
+      });
+
+      if (imageFiles.length > 0) processImageFiles(imageFiles);
+      if (videoFiles.length > 0) await processVideoFiles(videoFiles);
+      if (audioFiles.length > 0) await processAudioFiles(audioFiles);
+  };
+
+  const handleDragOverMain = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
   };
 
   const removeReferenceImage = (id: string) => setReferenceImages(prev => prev.filter(img => img.id !== id));
@@ -2072,7 +2334,7 @@ const App = () => {
         ];
 
       let lastError = null;
-      const modelsToTry = ['gpt-5-mini', 'gemini-3-flash-preview', 'gemini-3-pro-preview'];
+      const modelsToTry = CHAT_MODELS.map(m => m.id);
       
       for (const model of modelsToTry) {
         try {
@@ -2140,7 +2402,7 @@ const App = () => {
         ];
 
       let lastError = null;
-      const modelsToTry = ['gpt-5-mini', 'gemini-3-flash-preview', 'gemini-3-pro-preview'];
+      const modelsToTry = CHAT_MODELS.map(m => m.id);
       
       for (const model of modelsToTry) {
         try {
@@ -2504,14 +2766,17 @@ const App = () => {
             responseModalities: ["AUDIO"]
         };
 
-        if (tAudioMode === 'single') {
+        if (tAudioMode === 'single' || tSpeakerMap.length === 1) {
+            const voiceToUse = tAudioMode === 'single' ? tVoice : tSpeakerMap[0].voice;
             generationConfig.speechConfig = {
                 voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: tVoice }
+                    prebuiltVoiceConfig: { voiceName: voiceToUse }
                 }
             };
         } else {
              if (tSpeakerMap.length === 0) throw new Error("Please add at least one speaker");
+             if (tSpeakerMap.length > 2) throw new Error("目前多角色模式仅支持 2 个角色，请删除多余角色");
+             
              generationConfig.speechConfig = {
                 multiSpeakerVoiceConfig: {
                     speakerVoiceConfigs: tSpeakerMap.map((s: any) => ({
@@ -3076,17 +3341,6 @@ const App = () => {
   };
 
   // ... (Asset deletion handlers remain same) ...
-  const handleAssetDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    deleteAssetFromDB(id);
-    setGeneratedAssets(prev => prev.filter(a => a.id !== id));
-    setSelectedAssetIds(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-    });
-  };
-
   const handleContainerMouseDown = (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a') || (e.target as HTMLElement).closest('[data-asset-card="true"]') || (e.target as HTMLElement).tagName === 'AUDIO') return;
       setIsSelecting(true);
@@ -3136,41 +3390,21 @@ const App = () => {
     const assets = generatedAssets.filter(a => selectedAssetIds.has(a.id) && a.url);
     if (assets.length === 0) return;
 
-    for (let i = 0; i < assets.length; i++) {
-        const asset = assets[i];
+    const zip = new JSZip();
+    
+    for (const asset of assets) {
         try {
-            let downloadUrl = asset.url;
-            let shouldRevoke = false;
-
-            // Attempt to fetch as blob to bypass CORS/Content-Disposition issues
-            try {
-                const response = await fetch(asset.url);
-                const blob = await response.blob();
-                downloadUrl = window.URL.createObjectURL(blob);
-                shouldRevoke = true;
-            } catch (e) {
-                console.warn("Fetch failed, using original URL", e);
-            }
-
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = `viva-${asset.id}.${asset.type === 'video' ? 'mp4' : asset.type === 'audio' ? 'wav' : 'png'}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            if (shouldRevoke) {
-                setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 5000);
-            }
+            const response = await fetch(asset.url);
+            const blob = await response.blob();
+            const extension = asset.type === 'video' ? 'mp4' : asset.type === 'audio' ? 'wav' : 'png';
+            zip.file(`viva-${asset.id}.${extension}`, blob);
         } catch (e) {
-            console.error("Download failed for", asset.id, e);
-        }
-
-        // Add delay to avoid browser blocking multiple downloads
-        if (i < assets.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.error("Failed to add asset to zip", asset.id, e);
         }
     }
+
+    const content = await zip.generateAsync({type:"blob"});
+    saveAs(content, "viva-assets.zip");
   };
 
   const handleAssetDownload = async (asset: GeneratedAsset, e: React.MouseEvent) => {
@@ -3354,23 +3588,23 @@ const App = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F1F5F9] md:h-screen overflow-hidden text-black font-sans" 
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-100 md:h-screen overflow-hidden text-black font-sans" 
          onMouseMove={handleContainerMouseMove} 
          onMouseUp={handleContainerMouseUp}>
       
       {renderNavRail()}
 
-      <div className={`bg-white flex flex-col z-20 brutalist-shadow transition-all duration-300 ${isFullWidthMode ? 'flex-1 w-full border-r-0' : (isSidebarOpen ? 'w-full md:w-[450px] border-r-2 border-black' : 'w-0 md:w-0 overflow-hidden border-r-0 opacity-0')}`}>
-        <header className="bg-brand-yellow pl-1 pr-5 border-b-2 border-black h-12 flex items-center justify-between transition-colors duration-300">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold italic tracking-tight text-black">{APP_CONFIG.APP_NAME}</h1>
-          </div>
-          {isFullWidthMode && (
-          <div className="flex items-center gap-1 md:gap-2">
-               <button onClick={() => setActiveModal('settings')} title="系统设置" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        {/* Shared Header */}
+        <header className="bg-brand-yellow pl-2 pr-5 border-b-2 border-black h-12 flex items-center justify-between z-30 shrink-0">
+           <div className="flex items-center gap-4">
+             <h1 className="text-2xl font-bold italic tracking-tight text-black">{APP_CONFIG.APP_NAME}</h1>
+           </div>
+           <div className="flex items-center gap-1 md:gap-2">
+                <button onClick={() => setActiveModal('settings')} title="系统设置" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
                     <Settings className="w-7 h-7 md:w-8 md:h-8"/>
                 </button>
-                 <button onClick={() => setActiveModal('price')} title="价格说明" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
+                <button onClick={() => setActiveModal('price')} title="价格说明" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
                     <BadgeDollarSign className="w-7 h-7 md:w-8 md:h-8"/>
                 </button>
                 <button onClick={() => setActiveModal('links')} title="联系客服" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
@@ -3379,14 +3613,16 @@ const App = () => {
                 <a href={`${APP_CONFIG.BASE_URL}/console/log`} target="_blank" title="使用日志" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
                   <History className="w-7 h-7 md:w-8 md:h-8" />
                 </a>
-          </div>
-          )}
+           </div>
         </header>
-        
-        {/* Sidebar Content */}
-        {/* Conditionally render content based on mainCategory */}
-        {mainCategory === 'chat' ? (
-             <div className="flex-1 min-h-0 flex flex-col">
+
+        <div className="flex-1 flex flex-row min-h-0 overflow-hidden">
+           {/* Sidebar */}
+           <div className={`bg-white flex flex-col z-20 brutalist-shadow transition-all duration-300 ${isFullWidthMode ? 'flex-1 w-full border-r-0' : (isSidebarOpen ? 'w-full md:w-[450px] border-r-2 border-black' : 'w-0 md:w-0 overflow-hidden border-r-0 opacity-0')}`}>
+             {/* Sidebar Content */}
+             {/* Conditionally render content based on mainCategory */}
+             {mainCategory === 'chat' ? (
+                  <div className="flex-1 min-h-0 flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <ChatView 
                     config={config} 
                     messages={chatMessages} 
@@ -3403,14 +3639,14 @@ const App = () => {
                 />
              </div>
         ) : mainCategory === 'resources' ? (
-            <div className="flex-1 bg-[#F8FAFC] overflow-y-auto p-4 md:p-8 min-h-0">
+            <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 min-h-0">
                 <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-500">
                     {/* Header Hero */}
-                    <div className="bg-[#4ADE80] border-2 border-black p-8 md:p-12 brutalist-shadow text-white relative overflow-hidden group">
+                    <div className="bg-brand-blue border-2 border-black p-8 md:p-12 brutalist-shadow text-white relative overflow-hidden group">
                          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-black/10 skew-x-[-20deg] translate-x-1/2 group-hover:translate-x-1/3 transition-transform duration-700"></div>
                          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                             <div className="space-y-4">
-                                <div className="inline-flex items-center gap-2 bg-white text-[#4ADE80] border-2 border-black px-3 py-1 text-xs font-black uppercase tracking-wider">
+                                <div className="inline-flex items-center gap-2 bg-white text-brand-blue border-2 border-black px-3 py-1 text-xs font-black uppercase tracking-wider">
                                     <FolderOpen className="w-4 h-4 fill-current" />
                                     Useful Tools
                                 </div>
@@ -3468,7 +3704,7 @@ const App = () => {
                 </div>
             </div>
         ) : mainCategory === 'proxy' ? (
-            <div className="flex-1 bg-[#F8FAFC] overflow-y-auto p-4 md:p-8 min-h-0">
+            <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 min-h-0">
                 <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-bottom-4 fade-in duration-500">
                     
                     {/* Header Hero */}
@@ -3534,7 +3770,11 @@ const App = () => {
             </div>
         ) : (
         // ... (Main generation config panel code remains same) ...
-        <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-6 no-scrollbar">
+        <div 
+            className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-6 no-scrollbar animate-in fade-in slide-in-from-bottom-4 duration-500"
+            onDrop={handleDropMain}
+            onDragOver={handleDragOverMain}
+        >
           
           {!isAudioMode && (
           <section className="space-y-3">
@@ -3912,7 +4152,9 @@ const App = () => {
                                             <button 
                                                 onClick={() => {
                                                     if (speakerMap.length > 1) {
+                                                        const speakerToRemove = speakerMap[idx];
                                                         setSpeakerMap(speakerMap.filter((_, i) => i !== idx));
+                                                        setDialogueLines(dialogueLines.filter(line => line.speakerId !== speakerToRemove.id));
                                                     }
                                                 }}
                                                 className="bg-brand-red text-white p-1 border border-black hover:translate-y-0.5 hover:shadow-none transition-all"
@@ -4000,7 +4242,7 @@ const App = () => {
                                         </>
                                     ) : (
                                         currentVideoModel?.options.map((opt, idx) => (
-                                            <option key={idx} value={idx} disabled={isSyncAudio && opt.q === '标准模式'}>
+                                            <option key={idx} value={idx} disabled={(isSyncAudio && opt.q === '标准模式') || (opt as any).disabled}>
                                                 {(opt as any).s === 'AUTO' ? '自动时长' : (opt as any).s + 'S'} ({opt.q})
                                             </option>
                                         ))
@@ -4049,21 +4291,21 @@ const App = () => {
                   {/* Updated Toolbar matching the provided image style */}
                   {!isAudioMode && (
                   <div className="flex flex-wrap gap-2 mb-2">
-                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#F7CE00] text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-yellow text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <><Wand2 className="w-3.5 h-3.5"/> AI</>}
                     </button>
-                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#3B82F6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-blue text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                         <Palette className="w-3.5 h-3.5"/> 风格镜头
                     </button>
-                    <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[#A855F7] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-purple text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       <Bookmark className="w-3.5 h-3.5"/> 词库
                     </button>
                     
                     <div className="flex gap-2 ml-auto">
-                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="w-9 h-9 flex items-center justify-center bg-[#F472B6] text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
+                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="w-9 h-9 flex items-center justify-center bg-brand-pink text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
                         <Save className="w-4 h-4"/>
                       </button>
-                      <button onClick={() => setActiveModal('edit-prompt')} className="w-9 h-9 flex items-center justify-center bg-[#4ADE80] text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
+                      <button onClick={() => setActiveModal('edit-prompt')} className="w-9 h-9 flex items-center justify-center bg-brand-green text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
                         <Maximize2 className="w-4 h-4"/>
                       </button>
                       <button onClick={() => { setPrompt(''); setDialogueLines([]); }} className="w-9 h-9 flex items-center justify-center bg-white text-black border border-black font-normal text-xs brutalist-shadow-sm hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all" title="清空">
@@ -4090,10 +4332,10 @@ const App = () => {
 
                   <div className="relative group">
                       {isAudioMode ? (
-                          <div className="flex flex-col gap-2 overflow-y-auto border border-black p-2">
+                          <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] no-scrollbar">
                              {dialogueLines.map((line, idx) => (
-                                 <div key={line.id} className="bg-white border border-black p-2 shadow-sm flex flex-col gap-2 animate-in slide-in-from-bottom-2 fade-in">
-                                    <div className="flex justify-between items-center bg-brand-cream border-b border-black/10 pb-1 mb-1 px-1">
+                                 <div key={line.id} className="flex flex-col gap-1 animate-in slide-in-from-bottom-2 fade-in">
+                                    <div className="flex justify-between items-center px-1">
                                         <select 
                                             value={line.speakerId} 
                                             onChange={e => {
@@ -4172,7 +4414,7 @@ const App = () => {
           </section>
           )}
 
-          <div className="space-y-3 pt-4">
+          <div className="space-y-3">
             {error && <div className="bg-white border-2 border-brand-red p-3 text-brand-red font-normal text-[11px] brutalist-shadow-sm">ERROR: {error}</div>}
             
             {!isChatMode && !isProxyMode && !isResourcesMode && (
@@ -4201,38 +4443,35 @@ const App = () => {
         )}
       </div>
 
+      {/* Gallery */}
       {!isFullWidthMode && (
-      <div ref={galleryRef} className="flex-1 flex flex-col relative h-full overflow-hidden" onMouseDown={handleContainerMouseDown}>
-        {/* ... (Existing JSX for gallery header and items remains the same) */}
-        <div className="bg-brand-yellow border-b-2 border-black px-6 h-12 flex justify-between items-center z-10 shrink-0">
-          <div className="flex items-center gap-4">
+      <div ref={galleryRef} className="flex-1 flex flex-col relative h-full overflow-hidden select-none" onMouseDown={handleContainerMouseDown}>
+        <div className="py-2 px-6 flex items-center shrink-0 overflow-hidden gap-4">
+           <div className="flex items-center gap-2">
+             <button onClick={handleSelectAll} className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-white uppercase">
+                {selectedAssetIds.size === generatedAssets.length && generatedAssets.length > 0 ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>} 全选
+              </button>
+
               {selectedAssetIds.size > 0 && (
-                <div className="flex gap-2 mr-4">
-                  <button onClick={handleBatchDownload} className="bg-brand-blue text-white border border-black px-4 py-2 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none uppercase">下载 ({selectedAssetIds.size})</button>
-                  <button onClick={() => { selectedAssetIds.forEach(id => { deleteAssetFromDB(id); setGeneratedAssets(prev => prev.filter(a => a.id !== id)); }); setSelectedAssetIds(new Set()); }} className="bg-brand-red text-white border border-black px-4 py-2 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none uppercase">删除 ({selectedAssetIds.size})</button>
+                <div className="flex gap-2 animate-in fade-in slide-in-from-left-2">
+                  <button 
+                    onClick={handleBatchDownload} 
+                    className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-brand-blue text-white uppercase"
+                  >
+                    <Download className="w-4 h-4"/> 下载 ({selectedAssetIds.size})
+                  </button>
+                  <button 
+                    onClick={() => { 
+                      selectedAssetIds.forEach(id => { deleteAssetFromDB(id); setGeneratedAssets(prev => prev.filter(a => a.id !== id)); }); 
+                      setSelectedAssetIds(new Set()); 
+                    }} 
+                    className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-brand-red text-white uppercase"
+                  >
+                    <Trash2 className="w-4 h-4"/> 删除 ({selectedAssetIds.size})
+                  </button>
                 </div>
               )}
-          </div>
-          <div className="flex items-center gap-1 md:gap-2">
-               <button onClick={() => setActiveModal('settings')} title="系统设置" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
-                    <Settings className="w-7 h-7 md:w-8 md:h-8"/>
-                </button>
-                 <button onClick={() => setActiveModal('price')} title="价格说明" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
-                    <BadgeDollarSign className="w-7 h-7 md:w-8 md:h-8"/>
-                </button>
-                <button onClick={() => setActiveModal('links')} title="联系客服" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
-                    <MessageCircleQuestion className="w-7 h-7 md:w-8 md:h-8"/>
-                </button>
-                <a href={`${APP_CONFIG.BASE_URL}/console/log`} target="_blank" title="使用日志" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
-                  <History className="w-7 h-7 md:w-8 md:h-8" />
-                </a>
-          </div>
-        </div>
-
-        <div className="py-2 px-6 flex items-center shrink-0 overflow-hidden gap-4">
-           <button onClick={handleSelectAll} className="flex-shrink-0 flex items-center gap-2 border border-black px-3 py-1.5 text-xs font-normal brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all bg-white uppercase">
-              {selectedAssetIds.size === generatedAssets.length && generatedAssets.length > 0 ? <CheckSquare className="w-4 h-4"/> : <Square className="w-4 h-4"/>} 全选
-            </button>
+           </div>
             
             <div className="flex-1 flex items-center overflow-hidden relative h-[34px] gap-2">
                 {showAnnouncement ? (
@@ -4245,8 +4484,8 @@ const App = () => {
                             <X className="w-4 h-4" />
                         </button>
                         <div className="overflow-hidden whitespace-nowrap w-full relative">
-                            <div className="inline-block animate-marquee text-black text-xs font-normal">
-                                公告：1、本应用不储存用户资产，请及时下载；2、生成失败请重新生成，扣费自动返还；3、OpenClaw一键安装包见主站API文档。
+                            <div className="inline-block animate-marquee text-black text-sm font-normal">
+                                公告：1、本应用不储存用户资产，请及时下载；2、生成失败请重新生成，扣费自动返还；3、如遇连续失败，请暂时切换分组或者切换其它模型使用；4、欢迎联系客服提供优化建议。
                             </div>
                         </div>
                     </>
@@ -4269,17 +4508,19 @@ const App = () => {
                    data-asset-id={asset.id} 
                    data-asset-card="true" 
                    onClick={(e) => toggleAssetSelection(asset.id, e)}
-                   className={`group bg-white border-2 border-black brutalist-shadow transition-all hover:-translate-y-1 cursor-pointer relative ${selectedAssetIds.has(asset.id) ? 'border-brand-blue ring-4 ring-brand-blue/30' : ''}`}>
+                   className={`group bg-white border-2 border-black brutalist-shadow transition-all hover:-translate-y-1 cursor-pointer relative ${selectedAssetIds.has(asset.id) ? 'border-brand-blue border-4 ring-0' : ''}`}>
+                 <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteAssetFromDB(asset.id);
+                      setGeneratedAssets(prev => prev.filter(a => a.id !== asset.id));
+                    }}
+                    className="absolute top-2 right-2 z-50 bg-white border border-black p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 
-                <button 
-                  onClick={(e) => handleAssetDelete(asset.id, e)} 
-                  className="absolute top-2 right-2 bg-brand-red text-white p-2 border border-black brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all z-40"
-                  title="删除此内容"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-
-                <div className="aspect-square bg-slate-100 border-b-2 border-black relative overflow-hidden">
+                 <div className="aspect-square bg-slate-100 border-b-2 border-black relative overflow-hidden">
                   {(asset.status === 'loading' || asset.status === 'queued' || asset.status === 'processing') ? (
                      <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-slate-50 relative">
                         <div className="flex flex-col items-center animate-pulse">
@@ -4299,35 +4540,21 @@ const App = () => {
                         )}
                      </div>
                   ) : asset.status === 'failed' ? (
-                     <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-[#f8fafc]">
-                        <Frown className="w-16 h-16 text-[#808080] mb-3" strokeWidth={1.5} />
-                        <span className="font-normal text-sm text-[#808080] tracking-wide">生成失败</span>
+                     <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50">
+                        <Frown className="w-16 h-16 text-gray-500 mb-3" strokeWidth={1.5} />
+                        <span className="font-normal text-sm text-gray-500 tracking-wide">生成失败</span>
                      </div>
                   ) : asset.type === 'image' ? (
-                    <img src={asset.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={asset.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onClick={(e) => { if (selectedAssetIds.size === 0) { e.stopPropagation(); setPreviewAsset(asset); } }} />
                   ) : asset.type === 'video' ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                    <div className="w-full h-full flex flex-col items-center justify-center relative" onClick={(e) => { if (selectedAssetIds.size === 0) { e.stopPropagation(); setPreviewAsset(asset); } }}>
                       {asset.status === 'completed' ? <video src={asset.url} className="w-full h-full object-cover" muted loop autoPlay /> : <Loader2 className="w-12 h-12 animate-spin text-brand-red" />}
                     </div>
                   ) : (
                     // Audio Card Content
-                    <div className="w-full h-full flex flex-col items-center justify-center relative bg-[#E0E7FF] p-6">
-                        {asset.coverUrl ? (
-                            <img src={asset.coverUrl} className="absolute inset-0 w-full h-full object-cover opacity-50 blur-[2px]" />
-                        ) : null}
-                        <div className={`w-20 h-20 bg-brand-purple border-2 border-black rounded-full flex items-center justify-center brutalist-shadow mb-4 relative z-10 overflow-hidden`}>
-                             {asset.coverUrl ? <img src={asset.coverUrl} className="w-full h-full object-cover" /> : <AudioLines className="w-10 h-10 text-white" />}
-                        </div>
-                        <audio src={asset.url} controls className="w-full h-8 mt-2 relative z-10" />
-                    </div>
+                    <BrutalistAudioPlayer src={asset.url} coverUrl={asset.coverUrl} />
                   )}
                   <div className={`absolute top-3 left-3 ${asset.status === 'failed' ? 'bg-black text-white' : asset.type === 'video' ? 'bg-brand-red text-white' : asset.type === 'audio' ? 'bg-brand-purple text-white' : 'bg-brand-yellow'} border border-black px-2 py-0.5 font-normal text-xs uppercase z-10`}>{asset.type}</div>
-                  {asset.status === 'completed' && asset.type !== 'audio' && (
-                    <div className="absolute inset-0 bg-brand-yellow/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20">
-                        <button onClick={(e) => { e.stopPropagation(); setPreviewAsset(asset); }} className="p-3 bg-white border border-black brutalist-shadow-sm hover:translate-y-1 hover:shadow-none"><Maximize2 className="w-6 h-6"/></button>
-                        <button onClick={(e) => handleAssetDownload(asset, e)} className="p-3 bg-white border border-black brutalist-shadow-sm hover:translate-y-1 hover:shadow-none"><Download className="w-6 h-6"/></button>
-                    </div>
-                  )}
                 </div>
                 <div className="p-4 bg-white space-y-3">
                   <div className="flex justify-between items-center mb-1 border-b border-gray-100 pb-2">
@@ -4343,16 +4570,52 @@ const App = () => {
                     <p className="text-sm font-normal line-clamp-2 leading-tight pr-6 transition-colors group-hover/prompt:text-brand-blue" title={asset.prompt}>
                       "{asset.prompt}"
                     </p>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopyPrompt(asset.prompt, asset.id);
-                      }}
-                      className="absolute top-0 right-0 opacity-0 group-hover/prompt:opacity-100 p-1 bg-white border border-black hover:bg-brand-yellow transition-all brutalist-shadow-sm flex items-center justify-center"
-                      title="点击复制提示词"
-                    >
-                      {copiedId === asset.id ? <ClipboardCheck className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
-                    </button>
+                    <div className="absolute top-0 right-0 flex flex-col gap-1 opacity-0 group-hover/prompt:opacity-100">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyPrompt(asset.prompt, asset.id);
+                        }}
+                        className="p-1 bg-white border border-black hover:bg-brand-yellow transition-all brutalist-shadow-sm flex items-center justify-center"
+                        title="点击复制提示词"
+                      >
+                        {copiedId === asset.id ? <ClipboardCheck className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (asset.type === 'image') {
+                            setMainCategory('image');
+                            setSelectedModel(asset.modelId);
+                            setPrompt(asset.prompt);
+                            if (asset.config?.aspectRatio) setAspectRatio(asset.config.aspectRatio);
+                            if (asset.config?.imageSize) setImageSize(asset.config.imageSize);
+                          } else if (asset.type === 'video') {
+                            setMainCategory('video');
+                            setSelectedVideoModel(asset.modelId);
+                            setPrompt(asset.prompt);
+                            if (asset.config?.videoRatio) setVideoRatio(asset.config.videoRatio);
+                            if (asset.config?.videoOptionIdx !== undefined) setVideoOptionIdx(asset.config.videoOptionIdx);
+                          } else if (asset.type === 'audio') {
+                            setMainCategory('audio');
+                            setSelectedAudioModel(asset.modelId);
+                            if (asset.config?.selectedVoice) setSelectedVoice(asset.config.selectedVoice);
+                            if (asset.config?.speakerMap) setSpeakerMap(asset.config.speakerMap);
+                            // For audio, we parse lines and the speaker labels are stripped by parsePromptToLines
+                            const lines = parsePromptToLines(asset.prompt, asset.config?.speakerMap || speakerMap);
+                            setDialogueLines(lines);
+                          }
+                          setIsSidebarOpen(true);
+                          // Scroll to top of sidebar
+                          const sidebar = document.querySelector('.flex-1.overflow-y-auto.px-5.pb-5.pt-2');
+                          if (sidebar) sidebar.scrollTop = 0;
+                        }}
+                        className="p-1 bg-white border border-black hover:bg-brand-blue hover:text-white transition-all brutalist-shadow-sm flex items-center justify-center"
+                        title="编辑提示词"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="pt-2 flex gap-2 border-t border-slate-100">
@@ -4364,13 +4627,13 @@ const App = () => {
                             <Edit className="w-3 h-3" /> 编辑
                         </button>
                      )}
-                     {(asset.type === 'audio') && (
-                        <button onClick={(e) => handleAssetDownload(asset, e)} className="flex-1 py-1.5 bg-white border border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-green hover:text-black hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-normal uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
-                            <Download className="w-3 h-3" /> 下载
+                     {asset.type === 'image' && (
+                        <button disabled={asset.status !== 'completed'} onClick={(e) => { e.stopPropagation(); handleAssetGenVideo(asset); }} className="flex-1 py-1.5 bg-white border border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-normal uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
+                            <Video className="w-3 h-3" /> 视频
                         </button>
                      )}
-                     <button disabled={asset.status !== 'completed' || asset.type === 'video' || asset.type === 'audio'} onClick={(e) => { e.stopPropagation(); handleAssetGenVideo(asset); }} className="flex-1 py-1.5 bg-white border border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-normal uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
-                        <Video className="w-3 h-3" /> 视频
+                     <button disabled={asset.status !== 'completed'} onClick={(e) => handleAssetDownload(asset, e)} className="flex-1 py-1.5 bg-white border border-black brutalist-shadow-sm flex items-center justify-center gap-1 hover:bg-brand-green hover:text-black hover:translate-y-0.5 hover:shadow-none transition-all text-xs font-normal uppercase disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm">
+                        <Download className="w-3 h-3" /> 下载
                      </button>
                   </div>
                 </div>
@@ -4387,8 +4650,11 @@ const App = () => {
         </div>
       </div>
       )}
+      
+      </div>
+    </div>
 
-      {/* ... (Other modals: settings, links, usage, price, edit-prompt, styles, library, save-prompt-confirm, video-remix, previewAsset, previewRefImage - all remain unchanged) */}
+    {/* Modals */}
       {activeModal === 'settings' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-[600px] bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative">
@@ -4467,19 +4733,19 @@ const App = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-[500px] bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative">
             <ModalHeader title="联系客服 / SUPPORT" icon={MessageCircleQuestion} onClose={() => setActiveModal(null)} />
-            <div className="p-8 space-y-6">
-               <div className="bg-brand-cream border-2 border-black p-6 flex flex-col items-center gap-4 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+            <div className="p-6 space-y-4">
+               <div className="bg-brand-cream border-2 border-black p-4 flex flex-col items-center gap-2 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
                   <div className="absolute top-0 right-0 bg-brand-yellow px-3 py-1 border-l border-b border-black font-normal text-[10px] uppercase">Online</div>
-                  <div className="w-16 h-16 bg-brand-blue text-white border border-black rounded-full flex items-center justify-center brutalist-shadow-sm mb-2">
-                      <MessageCircleQuestion className="w-8 h-8" />
+                  <div className="w-14 h-14 bg-brand-blue text-white border border-black rounded-full flex items-center justify-center brutalist-shadow-sm mb-1">
+                      <MessageCircleQuestion className="w-7 h-7" />
                   </div>
-                  <div className="text-center space-y-2 w-full">
+                  <div className="text-center space-y-1 w-full">
                       <h3 className="font-bold text-sm uppercase italic text-slate-500 tracking-widest">WeChat Support</h3>
                       <div className="flex w-full items-stretch">
                           <div className="bg-brand-green text-black px-4 flex items-center justify-center border border-black border-r-0 font-bold text-xl whitespace-nowrap tracking-tighter">
                             微信客服
                           </div>
-                          <div className="bg-white border border-black px-4 py-3 text-2xl font-bold uppercase tracking-wider select-all cursor-text hover:bg-slate-50 transition-colors flex-1 text-center">
+                          <div className="bg-white border border-black px-4 py-2 text-2xl font-bold uppercase tracking-wider select-all cursor-text hover:bg-slate-50 transition-colors flex-1 text-center">
                               {APP_CONFIG.WECHAT_SERVICE}
                           </div>
                       </div>
@@ -4489,7 +4755,7 @@ const App = () => {
 
                <div className="w-full h-0.5 bg-slate-100 border-t border-dashed border-slate-300"></div>
 
-               <div className="space-y-4 text-center">
+               <div className="space-y-3 text-center">
                   <div className="space-y-1">
                       <h4 className="font-bold text-lg uppercase italic flex items-center justify-center gap-2">
                           <span className="w-2 h-2 bg-brand-green rounded-full border border-black"></span>
@@ -4500,7 +4766,7 @@ const App = () => {
                       </p>
                   </div>
 
-                  <a href={APP_CONFIG.SUPPORT_DETAIL_URL} target="_blank" className="flex items-center justify-center w-full py-4 bg-brand-red text-white border-2 border-transparent outline outline-2 outline-black font-bold text-lg uppercase hover:bg-black hover:translate-y-1 hover:shadow-none brutalist-shadow transition-all italic gap-2 group">
+                  <a href={APP_CONFIG.SUPPORT_DETAIL_URL} target="_blank" className="flex items-center justify-center w-full py-3 bg-brand-red text-white border-2 border-transparent outline outline-2 outline-black font-bold text-lg uppercase hover:bg-black hover:translate-y-1 hover:shadow-none brutalist-shadow transition-all italic gap-2 group">
                       查看更多详情 <ExternalLink className="w-5 h-5 group-hover:scale-110 transition-transform"/>
                   </a>
                </div>
@@ -4556,7 +4822,7 @@ const App = () => {
                     value={mainCategory === 'chat' ? chatInput : prompt} 
                     onChange={(e) => mainCategory === 'chat' ? setChatInput(e.target.value) : setPrompt(e.target.value)} 
                     placeholder="在此输入详细的提示词..." 
-                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed italic" 
+                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-slate-50 focus:outline-none brutalist-input resize-none leading-relaxed italic" 
                 />
                 <div className="flex justify-between items-center pt-2">
                     <div className="text-xs text-slate-500 font-normal uppercase italic">
@@ -4595,7 +4861,7 @@ const App = () => {
                         }
                     }} 
                     placeholder="在此输入台词..." 
-                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-[#F8FAFC] focus:outline-none brutalist-input resize-none leading-relaxed italic" 
+                    className="flex-1 w-full p-4 border border-black font-normal text-xl bg-slate-50 focus:outline-none brutalist-input resize-none leading-relaxed italic" 
                 />
                 <div className="flex justify-between items-center pt-2">
                     <div className="text-xs text-slate-500 font-normal uppercase italic">
@@ -4629,7 +4895,7 @@ const App = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 md:p-4">
           <div className="w-[900px] max-w-full bg-white border-2 border-black brutalist-shadow animate-in zoom-in-95 relative flex flex-col max-h-[85vh]">
             <ModalHeader title="风格与镜头 / STYLES & CAMERA" icon={Palette} onClose={() => setActiveModal(null)} />
-            <div className="flex-1 p-4 md:p-5 overflow-y-auto no-scrollbar bg-[#f8fafc]">
+            <div className="flex-1 p-4 md:p-5 overflow-y-auto no-scrollbar bg-slate-50">
               
               {renderStyleSection('艺术风格 (Art Styles)', STYLES.map(s => s.zh), false)}
               
@@ -4766,37 +5032,35 @@ const App = () => {
       )}
 
       {previewAsset && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={() => setPreviewAsset(null)}>
-          <button className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors z-[110]" onClick={() => setPreviewAsset(null)}>
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center animate-in fade-in duration-300" onClick={() => setPreviewAsset(null)}>
+          <button 
+            className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white transition-all rounded-full z-[120] border border-white/10" 
+            onClick={(e) => { e.stopPropagation(); setPreviewAsset(null); }}
+          >
             <X className="w-8 h-8 drop-shadow-md" />
           </button>
           
-          <div className="w-full h-full flex items-center justify-center p-2 md:p-4">
+          <div className="w-full h-full flex items-center justify-center p-8 md:p-24 animate-in zoom-in-95 duration-300">
              {previewAsset.type === 'image' ? (
-                <img src={previewAsset.url} className="max-w-full max-h-full object-contain shadow-2xl" />
+                <img src={previewAsset.url} className="w-full h-full object-contain shadow-2xl" />
              ) : (
-                <video src={previewAsset.url} controls autoPlay className="max-w-full max-h-full shadow-2xl" />
+                <video src={previewAsset.url} controls autoPlay className="w-full h-full object-contain shadow-2xl" />
              )}
           </div>
-
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleAssetDownload(previewAsset, e); }} 
-            className="absolute bottom-8 right-8 p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all border border-white/20 group z-[110]"
-            title="下载原图"
-          >
-            <Download className="w-8 h-8 group-hover:scale-110 transition-transform" />
-          </button>
         </div>
       )}
 
       {previewRefImage && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={() => setPreviewRefImage(null)}>
-          <button className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors z-[110]" onClick={() => setPreviewRefImage(null)}>
+        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center animate-in fade-in duration-300" onClick={() => setPreviewRefImage(null)}>
+          <button 
+            className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white transition-all rounded-full z-[120] border border-white/10" 
+            onClick={(e) => { e.stopPropagation(); setPreviewRefImage(null); }}
+          >
             <X className="w-8 h-8 drop-shadow-md" />
           </button>
           
-          <div className="w-full h-full flex items-center justify-center p-2 md:p-4">
-             <img src={previewRefImage.data.startsWith('http') ? previewRefImage.data : `data:${previewRefImage.mimeType};base64,${previewRefImage.data}`} className="max-w-full max-h-full object-contain shadow-2xl" />
+          <div className="w-full h-full flex items-center justify-center p-8 md:p-24 animate-in zoom-in-95 duration-300">
+             <img src={previewRefImage.data.startsWith('http') ? previewRefImage.data : `data:${previewRefImage.mimeType};base64,${previewRefImage.data}`} className="w-full h-full object-contain shadow-2xl" />
           </div>
         </div>
       )}
