@@ -84,6 +84,7 @@ interface ModelDefinition {
   cost: string;
   features: string[];
   maxImages: number;
+  maxReferenceImages?: number;
   supportedAspectRatios: string[];
   supportedResolutions: string[];
 }
@@ -142,8 +143,10 @@ const EXTENDED_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16'
 const GEMINI_3_1_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '1:4', '4:1', '1:8', '8:1'];
 const GPT1_RATIOS = ['1:1', '2:3', '3:2'];
 const GPT15_RATIOS = ['1:1', '2:3', '3:2'];
-const GROK_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
+const GROK_RATIOS = ['1:1', '2:3', '3:2', '9:16', '16:9'];
+const GROK_IMAGINE_RATIOS = ['1:1', '4:3', '9:16', '16:9'];
 const KLING_O1_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'];
+const DOUBAO_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'];
 
 const MODELS: ModelDefinition[] = [
   { 
@@ -208,6 +211,26 @@ const MODELS: ModelDefinition[] = [
     maxImages: 1,
     supportedAspectRatios: GROK_RATIOS,
     supportedResolutions: ['AUTO']
+  },
+  {
+    id: 'grok-imagine-image',
+    name: 'Grok Imagine Image',
+    cost: 'Grok',
+    features: ['creative'],
+    maxImages: 1,
+    maxReferenceImages: 1,
+    supportedAspectRatios: GROK_IMAGINE_RATIOS,
+    supportedResolutions: ['AUTO']
+  },
+  {
+    id: 'doubao-seedream-5-0-260128',
+    name: 'Doubao Seedream 5.0',
+    cost: 'Doubao',
+    features: ['high-quality'],
+    maxImages: 1,
+    maxReferenceImages: 8,
+    supportedAspectRatios: DOUBAO_RATIOS,
+    supportedResolutions: ['2K', '3K']
   }
 ];
 
@@ -1211,6 +1234,8 @@ const PRICE_DATA = [
       { m: 'GPT Image 1', p: '0.055元/张' },
       { m: 'GPT Image 1.5', p: '0.055元/张' },
       { m: 'Grok 4 Image', p: '0.056元/张' },
+      { m: 'Grok Imagine Image', p: '0.146元/张' },
+      { m: 'Doubao Seedream 5.0', p: '0.154元/张' },
     ]
   },
   {
@@ -2024,7 +2049,7 @@ const App = () => {
         else limit = 1;
     } else {
         const model = MODELS.find(m => m.id === selectedModel);
-        limit = model?.maxImages || 4;
+        limit = model?.maxReferenceImages ?? model?.maxImages ?? 4;
     }
 
     if (referenceImages.length > limit) {
@@ -2040,7 +2065,7 @@ const App = () => {
     
     let max = 4;
     if (!isVideoMode) {
-        max = currentModel?.maxImages || 4;
+        max = currentModel?.maxReferenceImages ?? currentModel?.maxImages ?? 4;
     } else {
         if (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control') {
             max = 1;
@@ -3190,7 +3215,41 @@ const App = () => {
 
     const tModelId = overrideConfig?.modelId ?? selectedModel;
     const tRatio = overrideConfig?.aspectRatio ?? aspectRatio;
-    const tSize = overrideConfig?.imageSize ?? imageSize;
+    let tSize = overrideConfig?.imageSize ?? imageSize;
+    
+    if (tModelId === 'grok-4-image') {
+        if (tRatio === '1:1') tSize = '1080x1080';
+        else if (tRatio === '2:3') tSize = '784x1168';
+        else if (tRatio === '3:2') tSize = '1168x784';
+        else if (tRatio === '9:16') tSize = '1080x1980';
+        else if (tRatio === '16:9') tSize = '1980x1080';
+    } else if (tModelId === 'grok-imagine-image') {
+        if (tRatio === '1:1') tSize = '1024x1024';
+        else if (tRatio === '4:3') tSize = '1440x1080';
+        else if (tRatio === '9:16') tSize = '1080x1920';
+        else if (tRatio === '16:9') tSize = '1920x1080';
+    } else if (tModelId === 'doubao-seedream-5-0-260128') {
+        if (tSize === '2K') {
+            if (tRatio === '1:1') tSize = '2048x2048';
+            else if (tRatio === '4:3') tSize = '2304x1728';
+            else if (tRatio === '3:4') tSize = '1728x2304';
+            else if (tRatio === '16:9') tSize = '2848x1600';
+            else if (tRatio === '9:16') tSize = '1600x2848';
+            else if (tRatio === '3:2') tSize = '2496x1664';
+            else if (tRatio === '2:3') tSize = '1664x2496';
+            else if (tRatio === '21:9') tSize = '3136x1344';
+        } else if (tSize === '3K') {
+            if (tRatio === '1:1') tSize = '3072x3072';
+            else if (tRatio === '4:3') tSize = '3456x2592';
+            else if (tRatio === '3:4') tSize = '2592x3456';
+            else if (tRatio === '16:9') tSize = '4096x2304';
+            else if (tRatio === '9:16') tSize = '2304x4096';
+            else if (tRatio === '3:2') tSize = '3744x2496';
+            else if (tRatio === '2:3') tSize = '2496x3744';
+            else if (tRatio === '21:9') tSize = '4704x2016';
+        }
+    }
+    
     const tRefs = overrideConfig?.referenceImages ?? referenceImages;
     const tTransparent = overrideConfig?.isTransparent ?? isTransparent;
     const count = overrideConfig ? 1 : generationCount;
@@ -3294,8 +3353,52 @@ const App = () => {
                     const data2 = await res2.json();
                     url = findImageUrlInObject(data2) || findImageUrlInObject(data2.choices?.[0]?.message?.content) || '';
                 }
+            } else if (tModelId === 'grok-imagine-image' && tRefs && tRefs.length > 0) {
+                const formData = new FormData();
+                formData.append('model', tModelId);
+                formData.append('prompt', tPrompt);
+                
+                const img = tRefs[0];
+                let blob: Blob;
+                if (img.data.startsWith('http')) {
+                    const imgRes = await fetch(img.data);
+                    blob = await imgRes.blob();
+                } else {
+                    const imgRes = await fetch(`data:${img.mimeType};base64,${img.data}`);
+                    blob = await imgRes.blob();
+                }
+                formData.append('image', blob, 'reference_image.png');
+
+                const res = await fetch(`${config.baseUrl}/v1/images/edits`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${key}` },
+                    body: formData
+                });
+                const data = await res.json();
+                url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
+            } else if (tModelId === 'grok-imagine-image' || tModelId === 'doubao-seedream-5-0-260128') {
+                const bodyPayload: any = {
+                    model: tModelId,
+                    prompt: tPrompt,
+                    size: tSize
+                };
+                if (tModelId === 'doubao-seedream-5-0-260128') {
+                    bodyPayload.aspect_ratio = tRatio;
+                }
+                if (tRefs && tRefs.length > 0) {
+                    const images = tRefs.map((img: ReferenceImage) => img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`);
+                    bodyPayload.image = images.length === 1 ? images[0] : images;
+                }
+                const res = await fetch(`${config.baseUrl}/v1/images/generations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify(bodyPayload)
+                });
+                const data = await res.json();
+                url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
             } else {
-                const content: any[] = [{ type: "text", text: `${tPrompt} --aspect-ratio ${tRatio}` }];
+                const promptText = `${tPrompt} --aspect-ratio ${tRatio}`;
+                const content: any[] = [{ type: "text", text: promptText }];
                 if (tRefs && tRefs.length > 0) tRefs.forEach((img: ReferenceImage) => content.push({ type: "image_url", image_url: { url: img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}` } }));
                 
                 const bodyPayload: any = { 
@@ -3304,7 +3407,14 @@ const App = () => {
                     stream: false,
                     aspect_ratio: tRatio
                 };
-                if (tSize && tSize !== 'AUTO') { bodyPayload.size = tSize; bodyPayload.resolution = tSize; }
+                if (tModelId === 'grok-4-image') {
+                    delete bodyPayload.aspect_ratio;
+                    bodyPayload.size = tSize;
+                    bodyPayload.resolution = tSize;
+                } else if (tSize && tSize !== 'AUTO') { 
+                    bodyPayload.size = tSize; 
+                    bodyPayload.resolution = tSize; 
+                }
                 
                 if ((tModelId === 'gpt-image-1-all' || tModelId === 'gpt-image-1.5-all') && tTransparent) {
                     bodyPayload.transparency = 'alpha';
@@ -3953,7 +4063,7 @@ const App = () => {
                                             </button>
                                             </div>
                                         ))}
-                                        {((!isVideoMode ? referenceImages.length < (currentImageModel?.maxImages || 4) : referenceImages.length < (selectedVideoModel === 'seedance-2.0' ? 9 : (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel.includes('components') ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1))))) && (
+                                        {((!isVideoMode ? referenceImages.length < (MODELS.find(m => m.id === selectedModel)?.maxReferenceImages ?? MODELS.find(m => m.id === selectedModel)?.maxImages ?? 4) : referenceImages.length < (selectedVideoModel === 'seedance-2.0' ? 9 : (selectedVideoModel === 'kling-avatar-image2video' || selectedVideoModel === 'kling-motion-control' ? 1 : (selectedVideoModel.includes('components') ? 3 : (selectedVideoModel.startsWith('veo')) ? 2 : 1))))) && (
                                             <label className="w-24 h-24 border border-black flex items-center justify-center cursor-pointer bg-white brutalist-shadow-sm">
                                             <Plus className="w-6 h-6" /><input type="file" multiple={!isVideoMode || selectedVideoModel === 'seedance-2.0' || selectedVideoModel.startsWith('veo')} accept=".jpg, .jpeg, .png" className="hidden" onChange={handleImageUpload} />
                                             </label>
