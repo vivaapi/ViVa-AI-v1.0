@@ -141,7 +141,6 @@ const ASPECT_RATIO_LABELS: Record<string, string> = {
 
 const EXTENDED_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
 const GEMINI_3_1_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '1:4', '4:1', '1:8', '8:1'];
-const GPT1_RATIOS = ['1:1', '2:3', '3:2'];
 const GPT15_RATIOS = ['1:1', '2:3', '3:2'];
 const GROK_RATIOS = ['1:1', '2:3', '3:2', '9:16', '16:9'];
 const GROK_IMAGINE_RATIOS = ['1:1', '4:3', '9:16', '16:9'];
@@ -184,15 +183,6 @@ const MODELS: ModelDefinition[] = [
     maxImages: 4,
     supportedAspectRatios: KLING_O1_RATIOS,
     supportedResolutions: ['1K', '2K']
-  },
-  {
-    id: 'gpt-image-1-all',
-    name: 'GPT Image 1',
-    cost: 'GPT',
-    features: ['stable'],
-    maxImages: 4,
-    supportedAspectRatios: GPT1_RATIOS,
-    supportedResolutions: ['AUTO']
   },
   {
     id: 'gpt-image-1.5-all',
@@ -1240,7 +1230,6 @@ const PRICE_DATA = [
       { m: 'Gemini-3.1-Flash-Image', p: '1K/2K 0.116元/张，4K 0.207元/张' },
       { m: 'Gemini-3-Pro-Image', p: '1K/2K 0.231元/张，4K 0.414元/张' },
       { m: 'Kling Image O1', p: '0.238元/张' },
-      { m: 'GPT Image 1', p: '0.055元/张' },
       { m: 'GPT Image 1.5', p: '0.055元/张' },
       { m: 'Grok 4 Image', p: '0.056元/张' },
       { m: 'Grok Imagine Image', p: '0.146元/张' },
@@ -3422,7 +3411,9 @@ const App = () => {
                     model: tModelId,
                     prompt: tPrompt,
                     n: 1,
-                    size: tSize === 'AUTO' ? (tRatio === '3:2' ? '1536x1024' : tRatio === '2:3' ? '1024x1536' : '1024x1024') : tSize,
+                    size: (tModelId === 'gpt-image-2-all' && tSize === 'AUTO') 
+                          ? (tRatio === '3:2' ? '1536x1024' : tRatio === '2:3' ? '1024x1536' : '1024x1024') 
+                          : (tSize === 'AUTO' ? undefined : tSize),
                     response_format: 'url'
                 };
                 if (tModelId === 'doubao-seedream-5-0-260128') {
@@ -3462,7 +3453,7 @@ const App = () => {
                     bodyPayload.resolution = tSize; 
                 }
                 
-                if ((tModelId === 'gpt-image-1-all' || tModelId === 'gpt-image-1.5-all') && tTransparent) {
+                if ((tModelId === 'gpt-image-1.5-all') && tTransparent) {
                     bodyPayload.transparency = 'alpha';
                 }
 
@@ -4434,7 +4425,7 @@ const App = () => {
 
                 <div className="space-y-1">
                   {/* Red Instruction Text for GPT Models */}
-                  {(!isVideoMode && !isAudioMode && (selectedModel === 'gpt-image-1-all' || selectedModel === 'gpt-image-1.5-all' || selectedModel === 'gpt-image-2-all')) && (
+                  {(!isVideoMode && !isAudioMode && (selectedModel === 'gpt-image-1.5-all' || selectedModel === 'gpt-image-2-all')) && (
                       <div className="text-xs text-brand-red font-normal mb-1">
                           提示词输入透明背景可生成透明背景图片
                       </div>
