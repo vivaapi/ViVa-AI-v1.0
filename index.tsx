@@ -4489,9 +4489,28 @@ const App = () => {
                 {!(isVideoMode && (selectedVideoModel === 'kling-motion-control' || selectedVideoModel === 'kling-avatar-image2video')) && !isAudioMode && (
                     <div className="space-y-1">
                         <label className={labelClass}>生成数量 BATCH</label>
-                        <div className="flex items-center gap-2.5 bg-white border border-black p-1.5 brutalist-shadow-sm h-10">
-                            <input type="range" min="1" max={10} value={generationCount} onChange={(e) => setGenerationCount(parseInt(e.target.value))} className="flex-1 accent-black h-4" />
-                            <span className="font-normal text-black text-xs">{generationCount}</span>
+                        <div className="flex items-center gap-3 bg-white border border-black p-1.5 brutalist-shadow-sm h-10 select-none">
+                            <button 
+                                onClick={() => setGenerationCount(prev => Math.max(1, prev - 1))}
+                                className="w-7 h-7 flex items-center justify-center bg-slate-100 border border-black active:bg-slate-200 transition-colors"
+                            >
+                                <span className="font-bold">-</span>
+                            </button>
+                            <input 
+                                type="range" 
+                                min="1" 
+                                max={10} 
+                                value={generationCount} 
+                                onChange={(e) => setGenerationCount(parseInt(e.target.value))} 
+                                className="flex-1 accent-black h-2 cursor-pointer touch-none" 
+                            />
+                            <button 
+                                onClick={() => setGenerationCount(prev => Math.min(10, prev + 1))}
+                                className="w-7 h-7 flex items-center justify-center bg-slate-100 border border-black active:bg-slate-200 transition-colors"
+                            >
+                                <span className="font-bold">+</span>
+                            </button>
+                            <span className="font-normal text-black text-xs w-5 text-center">{generationCount}</span>
                         </div>
                     </div>
                 )}
@@ -4510,25 +4529,25 @@ const App = () => {
                   
                   {/* Updated Toolbar matching the provided image style */}
                   {!isAudioMode && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-yellow text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <div className="flex flex-wrap gap-2 mb-2">
+                    <button onClick={optimizePrompt} disabled={isOptimizing} className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-yellow text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <><Wand2 className="w-3.5 h-3.5"/> AI</>}
                     </button>
-                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-blue text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => { setTempSelectedStyles([]); setActiveModal('styles'); }} className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-blue text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                         <Palette className="w-3.5 h-3.5"/> 风格镜头
                     </button>
-                    <button onClick={() => setActiveModal('library')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-purple text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
+                    <button onClick={() => setActiveModal('library')} className="flex-1 min-w-[80px] flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-purple text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all uppercase whitespace-nowrap">
                       <Bookmark className="w-3.5 h-3.5"/> 词库
                     </button>
                     
-                    <div className="flex gap-2 ml-auto">
-                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="w-9 h-9 flex items-center justify-center bg-brand-pink text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
+                    <div className="flex gap-2 w-full sm:w-auto sm:ml-auto justify-end mt-1 sm:mt-0">
+                      <button onClick={handleOpenSaveModal} disabled={!prompt.trim()} className="flex-1 sm:w-9 h-9 flex items-center justify-center bg-brand-pink text-white border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all disabled:opacity-50 disabled:grayscale disabled:hover:translate-y-0 disabled:hover:shadow-sm" title="保存">
                         <Save className="w-4 h-4"/>
                       </button>
-                      <button onClick={() => setActiveModal('edit-prompt')} className="w-9 h-9 flex items-center justify-center bg-brand-green text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
+                      <button onClick={() => setActiveModal('edit-prompt')} className="flex-1 sm:w-9 h-9 flex items-center justify-center bg-brand-green text-black border border-black font-normal text-xs brutalist-shadow-sm hover:translate-y-0.5 hover:shadow-none transition-all" title="展开">
                         <Maximize2 className="w-4 h-4"/>
                       </button>
-                      <button onClick={() => { setPrompt(''); setDialogueLines([]); }} className="w-9 h-9 flex items-center justify-center bg-white text-black border border-black font-normal text-xs brutalist-shadow-sm hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all" title="清空">
+                      <button onClick={() => { setPrompt(''); setDialogueLines([]); }} className="flex-1 sm:w-9 h-9 flex items-center justify-center bg-white text-black border border-black font-normal text-xs brutalist-shadow-sm hover:bg-brand-red hover:text-white hover:translate-y-0.5 hover:shadow-none transition-all" title="清空">
                         <Trash2 className="w-4 h-4"/>
                       </button>
                     </div>
