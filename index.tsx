@@ -3364,6 +3364,9 @@ const App = () => {
                     body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: tRatio, imageSize: tSize === 'AUTO' ? undefined : tSize } } })
                 });
                 const data = await res.json();
+                if (!res.ok || data.error) {
+                    throw new Error(`Gemini API Error: ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
+                }
                 const part = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData || p.inline_data);
                 if (part) { 
                     const d = part.inlineData || part.inline_data; 
@@ -3388,6 +3391,9 @@ const App = () => {
                         body: JSON.stringify(bodyPayload)
                     });
                     const data2 = await res2.json();
+                    if (!res2.ok || data2.error) {
+                        throw new Error(`Chat Completion Error: ${data2.error?.message || JSON.stringify(data2.error) || JSON.stringify(data2)}`);
+                    }
                     url = findImageUrlInObject(data2) || findImageUrlInObject(data2.choices?.[0]?.message?.content) || '';
                 }
             } else if (tModelId === 'grok-imagine-image' && tRefs && tRefs.length > 0) {
@@ -3412,6 +3418,9 @@ const App = () => {
                     body: formData
                 });
                 const data = await res.json();
+                if (!res.ok || data.error) {
+                    throw new Error(`Image Edit Error: ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
+                }
                 url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
             } else if ((tModelId === 'gpt-image-2-all' || tModelId === 'gpt-image-2') && tRefs && tRefs.length > 0) {
                 // MiniMax Image Edit logic
@@ -3451,6 +3460,9 @@ const App = () => {
                     body: formData
                 });
                 const data = await res.json();
+                if (!res.ok || data.error) {
+                    throw new Error(`GPT-2 Edit Error: ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
+                }
                 let b64 = data.data?.[0]?.b64_json;
                 if (b64) {
                     url = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
@@ -3544,6 +3556,9 @@ const App = () => {
                     body: JSON.stringify(bodyPayload)
                 });
                 const data = await res.json();
+                if (!res.ok || data.error) {
+                    throw new Error(`Fallback Chat Error: ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
+                }
                 url = findImageUrlInObject(data) || findImageUrlInObject(data.choices?.[0]?.message?.content) || '';
             }
         } catch (e) {
