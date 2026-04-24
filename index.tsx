@@ -216,7 +216,7 @@ const MODELS: ModelDefinition[] = [
   },
   {
     id: 'gpt-image-2',
-    name: 'GPT IMAGE 2',
+    name: 'GPT IMAGE 2(推荐使用)',
     cost: 'GPT-2-NEW',
     features: ['detail', 'high-quality'],
     maxImages: 4,
@@ -1262,7 +1262,7 @@ const PRICE_DATA = [
       { m: 'Gemini-3-Pro-Image', p: '1K/2K 0.231元/张，4K 0.414元/张' },
       { m: 'Kling Image O1', p: '0.238元/张' },
       { m: 'GPT Image 1.5', p: '0.055元/张' },
-      { m: 'GPT IMAGE 2', p: '提示3.500元/1M tokens    补全21.000元/1M tokens' },
+      { m: 'GPT IMAGE 2(推荐使用)', p: '提示3.500元/1M tokens    补全21.000元/1M tokens' },
       { m: 'GPT Image 2 ALL', p: '0.084元/张' },
       { m: 'Grok 4 Image', p: '0.056元/张' },
       { m: 'Grok Imagine Image', p: '0.146元/张' },
