@@ -23,7 +23,7 @@ import {
   User, VolumeX, MessageSquare,
   ChevronLeft, ChevronRight, MessageSquarePlus, Zap, Eraser, ArrowUp,
   ChevronDown, Brush, Brain, Monitor, FolderOpen, Frown,
-  Link, Globe, Bell
+  Link, Globe, Bell, Eye, EyeOff
 } from 'lucide-react';
 
 // --- Types & Declarations ---
@@ -516,6 +516,14 @@ const findImageUrlInObject = (obj: any): string | null => {
     if (trimmed.startsWith('data:image')) return trimmed;
     const urlMatch = trimmed.match(/(https?:\/\/[^\s"'<>]+)/i);
     if (urlMatch) return urlMatch[1];
+    
+    // Check if it's a raw base64 image string (rudimentary heuristic)
+    if (trimmed.length > 100 && /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(trimmed.slice(0, 500))) {
+         if (trimmed.startsWith('iVBORw0KGgo') || trimmed.startsWith('/9j/') || trimmed.startsWith('UklGR')) {
+              return `data:image/png;base64,${trimmed}`;
+         }
+    }
+    
     return null;
   }
   if (Array.isArray(obj)) {
@@ -524,7 +532,16 @@ const findImageUrlInObject = (obj: any): string | null => {
       if (found) return found;
     }
   } else if (typeof obj === 'object') {
-    const priorityKeys = ['url', 'b64_json', 'image', 'img', 'link', 'content', 'data', 'url'];
+    if (typeof obj['b64_json'] === 'string') {
+        const b64 = obj['b64_json'].trim();
+        return b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+    }
+    if (typeof obj['base64'] === 'string') {
+        const b64 = obj['base64'].trim();
+        if (b64.length > 50) return b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
+    }
+
+    const priorityKeys = ['url', 'b64_json', 'image', 'img', 'link', 'content', 'data'];
     for (const key of priorityKeys) {
       if (obj[key]) {
         const found = findImageUrlInObject(obj[key]);
@@ -539,6 +556,19 @@ const findImageUrlInObject = (obj: any): string | null => {
     }
   }
   return null;
+};
+
+const LiveTimer = ({ startTime, status }: { startTime: number, status?: string }) => {
+    const [seconds, setSeconds] = useState(Math.round((Date.now() - startTime) / 1000));
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setSeconds(Math.round((Date.now() - startTime) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+    
+    return <span className="font-normal text-xs uppercase tracking-tighter italic">{Math.max(0, seconds)}s</span>;
 };
 
 // --- IndexedDB ---
@@ -1544,6 +1574,8 @@ const App = () => {
   const [previewRefImage, setPreviewRefImage] = useState<ReferenceImage | null>(null);
   const [config, setConfig] = useState<AppConfig>({ baseUrl: FIXED_BASE_URL, apiKey: '' });
   const [tempConfig, setTempConfig] = useState<AppConfig>(config);
+  const [showKey1, setShowKey1] = useState(false);
+  const [showKey2, setShowKey2] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [libraryPrompts, setLibraryPrompts] = useState<SavedPrompt[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -3436,7 +3468,7 @@ const App = () => {
                 if (!res.ok || data.error) {
                     throw new Error(`Image Edit Error: ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
                 }
-                url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
+                url = findImageUrlInObject(data.data?.[0]?.url) || findImageUrlInObject(data) || '';
             } else if ((tModelId === 'gpt-image-2-all' || tModelId === 'gpt-image-2') && tRefs && tRefs.length > 0) {
                 // MiniMax Image Edit logic
                 const formData = new FormData();
@@ -3488,7 +3520,7 @@ const App = () => {
                 if (b64) {
                     url = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
                 } else {
-                    url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
+                    url = findImageUrlInObject(data.data?.[0]?.url) || findImageUrlInObject(data) || '';
                 }
             } else if (tModelId === 'gpt-image-2') {
                 const targetQuality = tQuality || 'auto';
@@ -3520,7 +3552,7 @@ const App = () => {
                 if (b64) {
                     url = b64.startsWith('data:') ? b64 : `data:image/png;base64,${b64}`;
                 } else {
-                    url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
+                    url = findImageUrlInObject(data.data?.[0]?.url) || findImageUrlInObject(data) || '';
                 }
             } else if (tModelId === 'grok-imagine-image' || tModelId === 'doubao-seedream-5-0-260128' || tModelId === 'gpt-image-2-all') {
                 const bodyPayload: any = {
@@ -3551,7 +3583,7 @@ const App = () => {
                 if (!res.ok || data.error) {
                     throw new Error(`API Error (${tModelId}): ${data.error?.message || JSON.stringify(data.error) || JSON.stringify(data)}`);
                 }
-                url = data.data?.[0]?.url || findImageUrlInObject(data) || '';
+                url = findImageUrlInObject(data.data?.[0]?.url) || findImageUrlInObject(data) || '';
             } else {
                 const promptText = `${tPrompt} --aspect-ratio ${tRatio}`;
                 const content: any[] = [{ type: "text", text: promptText }];
@@ -4847,9 +4879,14 @@ const App = () => {
                     <span className="font-bold text-xs text-black uppercase truncate max-w-[65%]" title={asset.modelName}>
                       {asset.modelName}
                     </span>
-                    <span className="font-bold text-xs text-black uppercase">
-                       {asset.config?.aspectRatio || asset.config?.videoRatio || 'AUTO'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                       <span className="font-bold text-[10px] text-gray-500 uppercase tracking-tighter">
+                          {(asset.status === 'loading' || asset.status === 'queued' || asset.status === 'processing') ? <LiveTimer startTime={asset.timestamp} status={asset.status} /> : asset.genTimeLabel}
+                       </span>
+                       <span className="font-bold text-xs pl-2 border-l border-black text-black text-right uppercase">
+                          {asset.config?.aspectRatio || asset.config?.videoRatio || 'AUTO'}
+                       </span>
+                    </div>
                   </div>
                   
                   <div className="relative group/prompt h-10">
@@ -4981,13 +5018,21 @@ const App = () => {
                             onChange={() => setTempConfig({...tempConfig, selectedKeyIndex: 0})}
                             className="w-5 h-5 accent-brand-blue cursor-pointer"
                         />
-                        <input 
-                            type="password" 
-                            value={tempConfig.apiKey} 
-                            onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} 
-                            placeholder="令牌 1"
-                            className={`flex-1 h-11 px-4 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex !== 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
-                        />
+                        <div className="relative flex-1">
+                            <input 
+                                type={showKey1 ? "text" : "password"} 
+                                value={tempConfig.apiKey} 
+                                onChange={e => setTempConfig({...tempConfig, apiKey: e.target.value})} 
+                                placeholder="令牌 1"
+                                className={`w-full h-11 px-4 pr-12 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex !== 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
+                            />
+                            <button 
+                                onClick={() => setShowKey1(!showKey1)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
+                            >
+                                {showKey1 ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -4997,13 +5042,21 @@ const App = () => {
                             onChange={() => setTempConfig({...tempConfig, selectedKeyIndex: 1})}
                             className="w-5 h-5 accent-brand-blue cursor-pointer"
                         />
-                        <input 
-                            type="password" 
-                            value={tempConfig.apiKey2 || ''} 
-                            onChange={e => setTempConfig({...tempConfig, apiKey2: e.target.value})} 
-                            placeholder="令牌 2"
-                            className={`flex-1 h-11 px-4 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex === 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
-                        />
+                        <div className="relative flex-1">
+                            <input 
+                                type={showKey2 ? "text" : "password"} 
+                                value={tempConfig.apiKey2 || ''} 
+                                onChange={e => setTempConfig({...tempConfig, apiKey2: e.target.value})} 
+                                placeholder="令牌 2"
+                                className={`w-full h-11 px-4 pr-12 border border-black text-lg font-normal font-mono outline-none transition-colors tracking-widest placeholder:text-slate-300 placeholder:text-base placeholder:font-sans placeholder:tracking-normal ${tempConfig.selectedKeyIndex === 1 ? 'bg-white focus:bg-brand-cream' : 'bg-slate-100 text-slate-400'}`}
+                            />
+                            <button 
+                                onClick={() => setShowKey2(!showKey2)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
+                            >
+                                {showKey2 ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
