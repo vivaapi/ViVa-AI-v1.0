@@ -304,7 +304,7 @@ const VIDEO_MODELS = [
   { id: 'veo3.1-pro-4k', name: 'veo3.1-pro-4k', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
   {
     id: 'seedance-2.0',
-    name: 'SEEDANCE 2.0待官方开放API',
+    name: 'SEEDANCE 2.0暂不可用',
     desc: '高清/多比例',
     supportedAspectRatios: ['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'],
     options: [
