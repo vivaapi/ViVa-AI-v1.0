@@ -304,7 +304,7 @@ const VIDEO_MODELS = [
   { id: 'veo3.1-pro-4k', name: 'veo3.1-pro-4k', desc: '4K/首尾帧', supportedAspectRatios: ['16:9', '9:16'], options: [{s: '8', q: '4K'}] },
   {
     id: 'seedance-2.0',
-    name: 'SEEDANCE 2.0待官方开放API',
+    name: 'SEEDANCE 2.0暂不可用',
     desc: '高清/多比例',
     supportedAspectRatios: ['9:16', '16:9', '1:1', '3:4', '4:3', '21:9'],
     options: [
@@ -323,6 +323,18 @@ const VIDEO_MODELS = [
       {s: '15', q: '标清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true},
       {s: '15', q: '高清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true}
     ] 
+  },
+  {
+    id: 'grok-videos',
+    name: 'GROK VIDEOS',
+    desc: '高清视频',
+    supportedAspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '21:9'],
+    options: [
+      {s: '5', q: '标清'},
+      {s: '10', q: '标清'},
+      {s: '5', q: '高清'},
+      {s: '10', q: '高清'}
+    ]
   },
   { 
     id: 'kling-motion-control', 
@@ -1319,6 +1331,7 @@ const PRICE_DATA = [
       { m: 'veo3.1-components-4k', p: '0.700元/条' },
       { m: 'veo3.1-pro-4k', p: '2.450元/条' },
       { m: 'Grok Video 3', p: '0.280元/6秒，0.280元/10秒' },
+      { m: 'GROK VIDEOS', p: '0.140元/次' },
       { m: 'Kling Control Std (动作转移)', p: '0.595元/秒' },
       { m: 'Kling Control Pro (动作转移)', p: '0.952元/秒' },
       { m: 'KLING Avatar Std (数字人)', p: '1.190元/秒' },
@@ -2076,9 +2089,11 @@ const App = () => {
             }
 
             const data = await res.json();
+            console.log("Polling result for task", taskId, data);
             
             // Check for API level error objects
             if (data.error) {
+                 console.error("Polling API Error Response for task", taskId, data);
                  updateAssetStatus(assetId, 'failed', data.error.message || 'API Error');
                  clearInterval(interval);
                  return;
@@ -2089,10 +2104,10 @@ const App = () => {
 
             // Check for error logs in response
             const logs = (data.logs || data.task_log || data.usage_log || '').toString();
-            const hasLogError = /error|fail|exception/i.test(logs) && !/no error|success/i.test(logs);
+            const hasLogError = /error|fail|exception/i.test(logs);
 
             const isSuccess = ['completed', 'succeeded', 'success', 'done'].includes(rawStatus);
-            const isFailed = ['failed', 'error', 'rejected', 'cancelled', 'timeout', 'exception'].includes(rawStatus) || hasLogError;
+            const isFailed = ['failed', 'error', 'rejected', 'cancelled', 'timeout', 'exception'].includes(rawStatus) || hasLogError || (data.status === 'failed') || (data.data?.status === 'failed');
 
             if (isSuccess && videoUrl) {
                 const finishTime = Date.now();
@@ -2100,6 +2115,7 @@ const App = () => {
                 updateAssetStatus(assetId, 'completed', `${diff}s`, videoUrl);
                 clearInterval(interval);
             } else if (isFailed) {
+                console.error("Polling Detected Failure for task", taskId, {data, hasLogError});
                 const reason = data.fail_reason || data.error_msg || data.error || data.task_status_msg || (hasLogError ? logs.slice(0, 100) : '失败');
                 updateAssetStatus(assetId, 'failed', reason);
                 clearInterval(interval);
@@ -3015,208 +3031,234 @@ const App = () => {
     scrollToGallery();
     try {
         const createOne = async (pId: string) => {
-            let response;
-            const isVeoModel = apiModelId.startsWith('veo3.1');
-            const isGrokModel = apiModelId.startsWith('grok');
-            const isJimengModel = apiModelId.startsWith('jimeng');
-            
-            if (apiModelId === 'kling-motion-control') {
-                if (tRefs.length === 0) throw new Error("请上传一张参考图片 (Image Required)");
-                if (tRefVideos.length === 0) throw new Error("请上传参考视频 (Video Required)");
-
-                const durationObj = modelDef!.options[tOptIdx];
-                const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
+            try {
+                let response;
+                const isVeoModel = apiModelId.startsWith('veo3.1');
+                const isGrokModel = apiModelId.startsWith('grok');
+                const isJimengModel = apiModelId.startsWith('jimeng');
                 
-                const payload: any = {
-                    prompt: tPrompt || undefined,
-                    keep_original_sound: tKlingKeepSound ? 'yes' : 'no',
-                    character_orientation: tKlingOrientation,
-                    mode: mode
-                };
+                if (apiModelId === 'kling-motion-control') {
+                    if (tRefs.length === 0) throw new Error("请上传一张参考图片 (Image Required)");
+                    if (tRefVideos.length === 0) throw new Error("请上传参考视频 (Video Required)");
 
-                if (tRefs[0].data.startsWith('http')) {
-                    payload.image_url = tRefs[0].data;
-                } else {
-                    payload.image = tRefs[0].data;
+                    const durationObj = modelDef!.options[tOptIdx];
+                    const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
+                    
+                    const payload: any = {
+                        prompt: tPrompt || undefined,
+                        keep_original_sound: tKlingKeepSound ? 'yes' : 'no',
+                        character_orientation: tKlingOrientation,
+                        mode: mode
+                    };
+
+                    if (tRefs[0].data.startsWith('http')) {
+                        payload.image_url = tRefs[0].data;
+                    } else {
+                        payload.image = tRefs[0].data;
+                    }
+
+                    if (tRefVideos[0].data.startsWith('http')) {
+                        payload.video_url = tRefVideos[0].data;
+                    } else {
+                        payload.video = tRefVideos[0].data;
+                    }
+
+                    response = await fetch(`${config.baseUrl}/kling/v1/videos/motion-control`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    const data = await response.json();
+                    if (!response.ok || (data.code && data.code !== 0)) throw new Error(data.message || data.error?.message || "Kling动作转移失败");
+                    
+                    const tid = data.data?.task_id;
+                    if (!tid) throw new Error("No Task ID returned from Kling API");
+                    
+                    const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
+                    setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
+                    saveAssetToDB(updatedAsset);
+                    
+                    startKlingVideoPolling(tid, pId, startTime, 'motion-control');
+                    return;
                 }
 
-                if (tRefVideos[0].data.startsWith('http')) {
-                    payload.video_url = tRefVideos[0].data;
-                } else {
-                    payload.video = tRefVideos[0].data;
+                if (apiModelId === 'kling-avatar-image2video') {
+                    if (tRefs.length === 0) throw new Error("请上传一张人像参考图");
+                    if (tRefAudios.length === 0) throw new Error("请上传驱动音频 (MP3/WAV/M4A/AAC, 2-60s)");
+                    
+                    const durationObj = modelDef!.options[tOptIdx];
+                    const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
+                    
+                    const payload: any = {
+                        sound_file: tRefAudios[0].data,
+                        prompt: tPrompt || "",
+                        mode: mode,
+                        callback_url: "",
+                        external_task_id: ""
+                    };
+
+                    if (tRefs[0].data.startsWith('http')) {
+                        payload.image_url = tRefs[0].data;
+                    } else {
+                        payload.image = tRefs[0].data;
+                    }
+
+                    response = await fetch(`${config.baseUrl}/kling/v1/videos/avatar/image2video`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || (data.code && data.code !== 0)) throw new Error(data.message || data.error?.message || "Kling数字人生成失败");
+                    
+                    const tid = data.data?.task_id;
+                    if (!tid) throw new Error("No Task ID returned from Kling API");
+
+                    const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
+                    setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
+                    saveAssetToDB(updatedAsset);
+                    
+                    startKlingVideoPolling(tid, pId, startTime, 'avatar/image2video');
+                    return;
                 }
 
-                response = await fetch(`${config.baseUrl}/kling/v1/videos/motion-control`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                if (isVeoModel || isGrokModel || isJimengModel || isKlingModel) {
+                    const payload: any = {
+                        model: apiModelId,
+                        prompt: tPrompt,
+                        images: tRefs.map((img: ReferenceImage) => img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`),
+                        aspect_ratio: tRatio
+                    };
+
+                    if (isVeoModel) {
+                        payload.enhance_prompt = true;
+                        payload.enable_upsample = true;
+                    }
+
+                    if (isGrokModel) {
+                        payload.size = '720P';
+                    }
+
+                    if (isJimengModel) {
+                        payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
+                    }
+                    
+                    if (isKlingModel) {
+                        payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
+                    }
+
+                    if ((isKlingModel || isGrokModel) && tSyncAudio) {
+                        payload.sync_audio = true;
+                    }
+
+                    response = await fetch(`${config.baseUrl}/v1/video/create`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    const formData = new FormData();
+                    formData.append('model', apiModelId);
+                    formData.append('prompt', tPrompt);
+                    
+                    if (apiModelId === 'seedance-2.0') {
+                        formData.append('seconds', tSeedanceDuration.toString());
+                    } else {
+                        formData.append('seconds', (modelDef!.options[tOptIdx] as any).s);
+                    }
+                    
+                    formData.append('size', tRatio.replace(':', 'x'));
+                    formData.append('watermark', 'false');
+                    
+                    if (tRefs && tRefs.length > 0) {
+                        for (let i = 0; i < tRefs.length; i++) {
+                                const img = tRefs[i];
+                                let blob: Blob | null = null;
+                                if (img.data.startsWith('http')) {
+                                    blob = await urlToBlob(img.data);
+                                } else {
+                                    blob = base64ToBlob(img.data, img.mimeType);
+                                }
+                                if (blob) formData.append('input_reference', blob, `图片 ${i+1}.png`);
+                        }
+                    }
+
+                    if (apiModelId === 'seedance-2.0') {
+                        if (tRefVideos && tRefVideos.length > 0) {
+                            for (let i = 0; i < tRefVideos.length; i++) {
+                                    const vid = tRefVideos[i];
+                                    let blob: Blob | null = null;
+                                    if (vid.data.startsWith('http')) {
+                                        blob = await urlToBlob(vid.data);
+                                    } else {
+                                        blob = base64ToBlob(vid.data, vid.mimeType);
+                                    }
+                                    if (blob) formData.append('input_reference', blob, `视频 ${i+1}.mp4`);
+                            }
+                        }
+                        if (tRefAudios && tRefAudios.length > 0) {
+                            for (let i = 0; i < tRefAudios.length; i++) {
+                                    const aud = tRefAudios[i];
+                                    let blob: Blob | null = null;
+                                    if (aud.data.startsWith('http')) {
+                                        blob = await urlToBlob(aud.data);
+                                    } else {
+                                        blob = base64ToBlob(aud.data, aud.mimeType);
+                                    }
+                                    if (blob) formData.append('input_reference', blob, `音频 ${i+1}.mp3`);
+                            }
+                        }
+                    }
+
+                    response = await fetch(`${config.baseUrl}/v1/videos`, { method: 'POST', headers: { 'Authorization': `Bearer ${key}` }, body: formData });
+                }
                 
                 const data = await response.json();
-                if (!response.ok || (data.code && data.code !== 0)) throw new Error(data.message || data.error?.message || "Kling动作转移失败");
+                if (!response.ok || (data.code && data.code !== 0)) {
+                    let errorMsg = "视频生成接口错误";
+                    if (data.error && typeof data.error === 'string') {
+                        errorMsg = data.error;
+                    } else if (data.error && typeof data.error === 'object' && data.error.message) {
+                        errorMsg = data.error.message;
+                    } else if (data.message) {
+                        errorMsg = data.message;
+                    }
+                    throw new Error(errorMsg);
+                }
                 
-                const tid = data.data?.task_id;
-                if (!tid) throw new Error("No Task ID returned from Kling API");
-                
+                const tid = data.id || data.data?.id || data.data?.task_id || data.task_id || data.taskId;
+                if (!tid) {
+                    let errorMsg = "视频生成接口错误";
+                    if (data.error && typeof data.error === 'string') {
+                        errorMsg = data.error;
+                    } else if (data.error && typeof data.error === 'object' && data.error.message) {
+                        errorMsg = data.error.message;
+                    } else if (data.message) {
+                        errorMsg = data.message;
+                    }
+                    throw new Error(errorMsg);
+                }
+
                 const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
                 setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
                 saveAssetToDB(updatedAsset);
-                
-                startKlingVideoPolling(tid, pId, startTime, 'motion-control');
-                return;
-            }
-
-            if (apiModelId === 'kling-avatar-image2video') {
-                if (tRefs.length === 0) throw new Error("请上传一张人像参考图");
-                if (tRefAudios.length === 0) throw new Error("请上传驱动音频 (MP3/WAV/M4A/AAC, 2-60s)");
-                
-                const durationObj = modelDef!.options[tOptIdx];
-                const mode = durationObj.q === '高品质模式' ? 'pro' : 'std';
-                
-                const payload: any = {
-                    sound_file: tRefAudios[0].data,
-                    prompt: tPrompt || "",
-                    mode: mode,
-                    callback_url: "",
-                    external_task_id: ""
-                };
-
-                if (tRefs[0].data.startsWith('http')) {
-                    payload.image_url = tRefs[0].data;
-                } else {
-                    payload.image = tRefs[0].data;
-                }
-
-                response = await fetch(`${config.baseUrl}/kling/v1/videos/avatar/image2video`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-                if (!response.ok || (data.code && data.code !== 0)) throw new Error(data.message || data.error?.message || "Kling数字人生成失败");
-                
-                const tid = data.data?.task_id;
-                if (!tid) throw new Error("No Task ID returned from Kling API");
-
-                const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
-                setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
-                saveAssetToDB(updatedAsset);
-                
-                startKlingVideoPolling(tid, pId, startTime, 'avatar/image2video');
-                return;
-            }
-
-            if (isVeoModel || isGrokModel || isJimengModel || isKlingModel) {
-                const payload: any = {
-                    model: apiModelId,
-                    prompt: tPrompt,
-                    images: tRefs.map((img: ReferenceImage) => img.data.startsWith('http') ? img.data : `data:${img.mimeType};base64,${img.data}`),
-                    aspect_ratio: tRatio
-                };
-
-                if (isVeoModel) {
-                  payload.enhance_prompt = true;
-                  payload.enable_upsample = true;
-                }
-
-                if (isGrokModel) {
-                   payload.size = '720P';
-                }
-
-                if (isJimengModel) {
-                    payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
-                }
                 
                 if (isKlingModel) {
-                    // For other Kling models (like text2video or image2video)
-                    payload.duration = parseInt((modelDef!.options[tOptIdx] as any).s);
-                }
-
-                if ((isKlingModel || isGrokModel) && tSyncAudio) {
-                    payload.sync_audio = true;
-                }
-
-                response = await fetch(`${config.baseUrl}/v1/video/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-            } else {
-                const formData = new FormData();
-                formData.append('model', apiModelId);
-                formData.append('prompt', tPrompt);
-                
-                if (apiModelId === 'seedance-2.0') {
-                    formData.append('seconds', tSeedanceDuration.toString());
+                     // Determine correct polling type for generic Kling
+                     const endpoint = tRefs.length > 0 ? 'image2video' : 'text2video';
+                     startKlingVideoPolling(tid, pId, startTime, endpoint);
                 } else {
-                    formData.append('seconds', (modelDef!.options[tOptIdx] as any).s);
+                    startVideoPolling(tid, pId, startTime, apiModelId);
                 }
-                
-                formData.append('size', tRatio.replace(':', 'x'));
-                formData.append('watermark', 'false');
-                
-                if (tRefs && tRefs.length > 0) {
-                    for (let i = 0; i < tRefs.length; i++) {
-                         const img = tRefs[i];
-                         let blob: Blob | null = null;
-                         if (img.data.startsWith('http')) {
-                             blob = await urlToBlob(img.data);
-                         } else {
-                             blob = base64ToBlob(img.data, img.mimeType);
-                         }
-                         if (blob) formData.append('input_reference', blob, `图片 ${i+1}.png`);
-                    }
-                }
-
-                if (apiModelId === 'seedance-2.0') {
-                    if (tRefVideos && tRefVideos.length > 0) {
-                        for (let i = 0; i < tRefVideos.length; i++) {
-                             const vid = tRefVideos[i];
-                             let blob: Blob | null = null;
-                             if (vid.data.startsWith('http')) {
-                                 blob = await urlToBlob(vid.data);
-                             } else {
-                                 blob = base64ToBlob(vid.data, vid.mimeType);
-                             }
-                             if (blob) formData.append('input_reference', blob, `视频 ${i+1}.mp4`);
-                        }
-                    }
-                    if (tRefAudios && tRefAudios.length > 0) {
-                        for (let i = 0; i < tRefAudios.length; i++) {
-                             const aud = tRefAudios[i];
-                             let blob: Blob | null = null;
-                             if (aud.data.startsWith('http')) {
-                                 blob = await urlToBlob(aud.data);
-                             } else {
-                                 blob = base64ToBlob(aud.data, aud.mimeType);
-                             }
-                             if (blob) formData.append('input_reference', blob, `音频 ${i+1}.mp3`);
-                        }
-                    }
-                }
-
-                response = await fetch(`${config.baseUrl}/v1/videos`, { method: 'POST', headers: { 'Authorization': `Bearer ${key}` }, body: formData });
-            }
-            
-            const data = await response.json();
-            if (!response.ok || (data.code && data.code !== 0)) throw new Error(data.error?.message || data.message || "视频生成接口错误");
-            
-            const tid = data.id || data.data?.id || data.data?.task_id || data.task_id || data.taskId;
-            if (!tid) throw new Error("No Task ID returned");
-
-            const updatedAsset: any = { ...placeholders.find(x => x.id === pId), status: 'queued', taskId: tid };
-            setGeneratedAssets(prev => prev.map(a => a.id === pId ? updatedAsset : a));
-            saveAssetToDB(updatedAsset);
-            
-            if (isKlingModel) {
-                 // Determine correct polling type for generic Kling
-                 const endpoint = tRefs.length > 0 ? 'image2video' : 'text2video';
-                 startKlingVideoPolling(tid, pId, startTime, endpoint);
-            } else {
-                startVideoPolling(tid, pId, startTime, apiModelId);
+            } catch (err: any) {
+                console.error("createOne error:", err);
+                setGeneratedAssets(prev => prev.map(a => a.id === pId ? { ...a, status: 'failed', genTimeLabel: err.message || '生成失败' } : a));
+                setError(err.message || '生成失败');
             }
         };
+
         
         placeholders.forEach(p => createOne(p.id));
     } catch (err: any) { 
@@ -4339,7 +4381,7 @@ const App = () => {
                                 </div>
                             )}
                             
-                            {isVideoMode && selectedVideoModel !== 'grok-video-3' && selectedVideoModel !== 'kling-avatar-image2video' && (
+                            {isVideoMode && selectedVideoModel !== 'grok-video-3' && selectedVideoModel !== 'grok-videos' && selectedVideoModel !== 'kling-avatar-image2video' && (
                                 <div className="text-xs text-brand-red font-normal mt-1">
                                     {(() => {
                                         if (selectedVideoModel === 'seedance-2.0') return '请勿上传真人，混合上传文件总数≤12个';
@@ -4860,7 +4902,8 @@ const App = () => {
                   ) : asset.status === 'failed' ? (
                      <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50">
                         <Frown className="w-16 h-16 text-gray-500 mb-3" strokeWidth={1.5} />
-                        <span className="font-normal text-sm text-gray-500 tracking-wide">生成失败</span>
+                        <span className="font-bold text-sm text-black tracking-wide">生成失败</span>
+                        <span className="font-normal text-xs text-gray-500 px-4 text-center mt-2">{asset.genTimeLabel}</span>
                      </div>
                   ) : asset.type === 'image' ? (
                     <img src={asset.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onClick={(e) => { if (selectedAssetIds.size === 0) { e.stopPropagation(); setPreviewAsset(asset); } }} />
@@ -4880,8 +4923,8 @@ const App = () => {
                       {asset.modelName}
                     </span>
                     <div className="flex items-center gap-2">
-                       <span className="font-bold text-[10px] text-gray-500 uppercase tracking-tighter">
-                          {(asset.status === 'loading' || asset.status === 'queued' || asset.status === 'processing') ? <LiveTimer startTime={asset.timestamp} status={asset.status} /> : asset.genTimeLabel}
+                       <span className={`font-bold text-xs ${asset.status === 'completed' ? 'text-green-600' : 'text-gray-500'} uppercase tracking-tighter`}>
+                          {(asset.status === 'loading' || asset.status === 'queued' || asset.status === 'processing') ? <LiveTimer startTime={asset.timestamp} status={asset.status} /> : (asset.status === 'failed' ? '' : asset.genTimeLabel)}
                        </span>
                        <span className="font-bold text-xs pl-2 border-l border-black text-black text-right uppercase">
                           {asset.config?.aspectRatio || asset.config?.videoRatio || 'AUTO'}
