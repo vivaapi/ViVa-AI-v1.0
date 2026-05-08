@@ -1952,7 +1952,7 @@ const App = () => {
   };
   
   const updateAssetStatus = async (id: string, status: 'completed' | 'failed', label: string, url?: string) => {
-      setGeneratedAssets(prev => prev.map(a => a.id === id ? { ...a, status, label: label, ...(url ? { url } : {}) } : a));
+      setGeneratedAssets(prev => prev.map(a => a.id === id ? { ...a, status, genTimeLabel: label, ...(url ? { url } : {}) } : a));
       const assets = await getAllAssetsFromDB();
       const existing = assets.find(a => a.id === id);
       if (existing) {
