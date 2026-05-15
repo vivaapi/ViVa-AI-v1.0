@@ -292,7 +292,7 @@ const VIDEO_MODELS = [
     supportedAspectRatios: ['9:16', '16:9', '2:3', '3:2', '1:1'],
     options: [
       {s: '6', q: '标清'},
-      {s: '10', q: '标清'}
+      {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'}
     ] 
   },
   { 
