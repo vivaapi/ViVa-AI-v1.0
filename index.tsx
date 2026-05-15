@@ -4334,6 +4334,7 @@ const App = () => {
                     <div className="mt-1.5 space-y-0.5">
                         <p className="text-brand-red text-xs font-normal">1、该模型全网都极不稳定，暂无好的解决办法；</p>
                         <p className="text-brand-red text-xs font-normal">2、令牌可多添加一个“限时体验”分组，增加该模型的成功率；</p>
+                        <p className="text-brand-red text-xs font-normal">3、如果一直无法使用，请使用临时应用<a href="https://p.vivaapi.top" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://p.vivaapi.top</a></p>
                     </div>
                   )}
                 </div>
