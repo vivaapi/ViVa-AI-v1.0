@@ -292,9 +292,7 @@ const VIDEO_MODELS = [
     supportedAspectRatios: ['9:16', '16:9', '2:3', '3:2', '1:1'],
     options: [
       {s: '6', q: '标清'},
-      {s: '10', q: '标清', modelIdOverride: 'grok-video-3-10s'},
-      {s: '15', q: '标清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true},
-      {s: '15', q: '高清（模型下线）', modelIdOverride: 'grok-video-3-15s', disabled: true}
+      {s: '10', q: '标清'}
     ] 
   },
   { 
@@ -314,37 +312,6 @@ const VIDEO_MODELS = [
     supportedAspectRatios: ['原图比例'],
     options: [
       {s: 'AUTO', q: '标准模式'}, {s: 'AUTO', q: '高品质模式'}
-    ] 
-  },
-  { 
-    id: 'sora-2-all', 
-    name: 'Sora-2-All', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '10', q: '标清'},
-      {s: '15', q: '标清'}
-    ] 
-  },
-  { 
-    id: 'sora-2', 
-    name: 'Sora-2(官转按秒计费)', 
-    desc: '标清视频', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '4', q: '标清'}, 
-      {s: '8', q: '标清'},
-      {s: '12', q: '标清'}
-    ] 
-  },
-  { 
-    id: 'sora-2-pro-all', 
-    name: 'Sora-2-Pro-All', 
-    desc: '高清/长效', 
-    supportedAspectRatios: ['9:16', '16:9'],
-    options: [
-      {s: '15', q: '高清'}, 
-      {s: '25', q: '标清'}
     ] 
   }
 ];
@@ -1293,13 +1260,6 @@ const PRICE_DATA = [
       { m: 'Kling Control Pro (动作转移)', p: '0.952元/秒' },
       { m: 'KLING Avatar Std (数字人)', p: '1.190元/秒' },
       { m: 'KLING Avatar Pro (数字人)', p: '2.380元/秒' },
-      { m: 'Sora-2-all', p: 'default分组 0.14元/条' },
-      { m: 'Sora-2(官转按秒计费)', p: <div className="flex flex-col items-end text-right">
-        <div>官转 0.21元/秒</div>
-        <div>官转Open AI分组 0.42元/秒</div>
-        <div>优质官转Open AI分组 0.56元/秒</div>
-      </div> },
-      { m: 'Sora-2-Pro-All', p: '2.520元/条' },
       { m: 'Happy Horse-1.0', p: '720P 1.071元/秒，1080P 1.904元/秒' },
     ]
   },
@@ -1339,7 +1299,7 @@ const PriceView = () => {
                             } else {
                                 priceContent = (
                                   <div className="flex flex-col items-end text-right text-gray-500 text-sm font-medium">
-                                    {React.Children.map(item.p.props.children, (child) => {
+                                    {React.Children.map((item.p as any).props.children, (child) => {
                                       if (typeof child === 'string') return <div>{formatPriceString(child, decimals)}</div>;
                                       if (React.isValidElement(child)) {
                                         return React.cloneElement(child as React.ReactElement, {
@@ -3773,11 +3733,6 @@ const App = () => {
 
   const handleAssetEdit = (asset: GeneratedAsset) => {
      if (asset.type === 'video') {
-        if (asset.modelId.includes('sora-2')) {
-            setRemixingAsset(asset);
-            setRemixPrompt(''); // User requested no preset prompt
-            setActiveModal('video-remix');
-        }
         return;
      }
 
@@ -4298,9 +4253,8 @@ const App = () => {
                             {isVideoMode && selectedVideoModel !== 'grok-video-3' && selectedVideoModel !== 'grok-videos' && selectedVideoModel !== 'kling-avatar-image2video' && !selectedVideoModel.startsWith('happyhorse') && (
                                 <div className="text-xs text-brand-red font-normal mt-1">
                                     {(() => {
-                                        if (selectedVideoModel === 'sora-2-all' || selectedVideoModel === 'sora-2-pro-all' || selectedVideoModel === 'sora-2' || selectedVideoModel === 'sora-2-vip-all') return '请勿上传真人';
                                         if (selectedVideoModel.startsWith('veo')) return '请勿上传未成年';
-                                        return 'Sora2请勿上传真人，Veo请勿上传未成年';
+                                        return '请勿上传违规人物，Veo请勿上传未成年';
                                     })()}
                                 </div>
                             )}
@@ -4376,6 +4330,12 @@ const App = () => {
                   >
                     {(!isVideoMode && !isAudioMode ? MODELS : (isAudioMode ? AUDIO_MODELS : VIDEO_MODELS)).map(m => <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>)}
                   </select>
+                  {isVideoMode && selectedVideoModel === 'grok-video-3' && (
+                    <div className="mt-1.5 space-y-0.5">
+                        <p className="text-brand-red text-xs font-normal">1、该模型全网都极不稳定，暂无好的解决办法；</p>
+                        <p className="text-brand-red text-xs font-normal">2、令牌可多添加一个“限时体验”分组，增加该模型的成功率；</p>
+                    </div>
+                  )}
                 </div>
 
                 {isAudioMode && (
