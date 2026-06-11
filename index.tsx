@@ -3833,8 +3833,15 @@ const App = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         {/* Shared Header */}
         <header className="bg-brand-yellow pl-2 pr-5 border-b-2 border-black h-12 flex items-center justify-between z-30 shrink-0">
-           <div className="flex items-center gap-4">
-             <h1 className="text-2xl font-bold italic tracking-tight text-black">{APP_CONFIG.APP_NAME}</h1>
+           <div className="flex items-center gap-2 sm:gap-4">
+             <h1 className="text-2xl font-bold italic tracking-tight text-black shrink-0">{APP_CONFIG.APP_NAME}</h1>
+             <span className="text-xs md:text-sm text-gray-800 font-normal shrink-0">
+               <span className="hidden sm:inline">此站点暂停更新，新版：</span>
+               <span className="inline sm:hidden">新版：</span>
+               <a href="https://www.vecoai.cn" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold">
+                 www.vecoai.cn
+               </a>
+             </span>
            </div>
            <div className="flex items-center gap-1 md:gap-2">
                 <button onClick={() => setActiveModal('settings')} title="系统设置" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
