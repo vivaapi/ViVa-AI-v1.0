@@ -1558,8 +1558,7 @@ const App = () => {
     { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' },
     { id: 'img-url', name: '图片转URL链接', desc: '快速将图片转换为在线URL链接。', url: 'https://lsky.zhongzhuan.chat', icon: 'Link' },
     { id: 'watermark', name: '图片/PDF去水印', desc: 'Pilio.ai - 专业的图片与PDF在线去水印工具。', url: 'https://pilio.ai/zh', icon: 'Eraser' },
-    { id: 'md-editor', name: 'Markdown编辑器', desc: '在线 Markdown 实时编辑器，支持一边写一边预览效果，并可快速发布文档。', url: 'https://doocs.gitee.io/md', icon: 'FileText' },
-    { id: 'vpn', name: '科学上网（付费）', desc: '高速稳定的网络加速服务。', url: 'https://caomei888.top/#/register?code=iPB4QjfQ', icon: 'Globe' }
+    { id: 'md-editor', name: 'Markdown编辑器', desc: '在线 Markdown 实时编辑器，支持一边写一边预览效果，并可快速发布文档。', url: 'https://doocs.gitee.io/md', icon: 'FileText' }
   ]);
   const [draggedResourceIdx, setDraggedResourceIdx] = useState<number | null>(null);
 
