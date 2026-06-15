@@ -1558,8 +1558,7 @@ const App = () => {
     { id: 'uu-remote', name: '网易UU远程', desc: '网易出品，免费高清流畅的远程控制软件。', url: 'https://uuyc.163.com', icon: 'Monitor' },
     { id: 'img-url', name: '图片转URL链接', desc: '快速将图片转换为在线URL链接。', url: 'https://lsky.zhongzhuan.chat', icon: 'Link' },
     { id: 'watermark', name: '图片/PDF去水印', desc: 'Pilio.ai - 专业的图片与PDF在线去水印工具。', url: 'https://pilio.ai/zh', icon: 'Eraser' },
-    { id: 'md-editor', name: 'Markdown编辑器', desc: '在线 Markdown 实时编辑器，支持一边写一边预览效果，并可快速发布文档。', url: 'https://doocs.gitee.io/md', icon: 'FileText' },
-    { id: 'vpn', name: '科学上网（付费）', desc: '高速稳定的网络加速服务。', url: 'https://caomei888.top/#/register?code=iPB4QjfQ', icon: 'Globe' }
+    { id: 'md-editor', name: 'Markdown编辑器', desc: '在线 Markdown 实时编辑器，支持一边写一边预览效果，并可快速发布文档。', url: 'https://doocs.gitee.io/md', icon: 'FileText' }
   ]);
   const [draggedResourceIdx, setDraggedResourceIdx] = useState<number | null>(null);
 
@@ -3833,15 +3832,8 @@ const App = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full relative">
         {/* Shared Header */}
         <header className="bg-brand-yellow pl-2 pr-5 border-b-2 border-black h-12 flex items-center justify-between z-30 shrink-0">
-           <div className="flex items-center gap-2 sm:gap-4">
-             <h1 className="text-2xl font-bold italic tracking-tight text-black shrink-0">{APP_CONFIG.APP_NAME}</h1>
-             <span className="text-xs md:text-sm text-gray-800 font-normal shrink-0">
-               <span className="hidden sm:inline">此站点暂停更新，新版：</span>
-               <span className="inline sm:hidden">新版：</span>
-               <a href="https://www.vecoai.cn" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-bold">
-                 www.vecoai.cn
-               </a>
-             </span>
+           <div className="flex items-center gap-4">
+             <h1 className="text-2xl font-bold italic tracking-tight text-black">{APP_CONFIG.APP_NAME}</h1>
            </div>
            <div className="flex items-center gap-1 md:gap-2">
                 <button onClick={() => setActiveModal('settings')} title="系统设置" className="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center text-black hover:text-brand-red transition-colors">
@@ -4337,13 +4329,6 @@ const App = () => {
                   >
                     {(!isVideoMode && !isAudioMode ? MODELS : (isAudioMode ? AUDIO_MODELS : VIDEO_MODELS)).map(m => <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>)}
                   </select>
-                  {isVideoMode && selectedVideoModel === 'grok-video-3' && (
-                    <div className="mt-1.5 space-y-0.5">
-                        <p className="text-brand-red text-xs font-normal">1、该模型全网都极不稳定，暂无好的解决办法；</p>
-                        <p className="text-brand-red text-xs font-normal">2、令牌可多添加一个“限时体验”分组，增加该模型的成功率；</p>
-                        <p className="text-brand-red text-xs font-normal">3、如果一直无法使用，请使用临时应用<a href="https://p.vivaapi.top" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://p.vivaapi.top</a></p>
-                    </div>
-                  )}
                 </div>
 
                 {isAudioMode && (
