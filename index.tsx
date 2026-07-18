@@ -4680,7 +4680,9 @@ const App = () => {
             {!isChatMode && !isProxyMode && !isResourcesMode && (
               <>
                 <div className="text-center mb-1 mt-1">
-                  <p className="text-brand-red text-sm font-bold tracking-tight">全新高稳定性版本开发中，敬请期待。</p>
+                  <p className="text-brand-red text-sm font-bold tracking-tight">
+                    新站点：<a href="https://vecoai.cn" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">https://vecoai.cn</a>
+                  </p>
                 </div>
                 <button onClick={() => executeGeneration()} className="w-full py-3 bg-brand-red text-white text-xl font-normal border border-black brutalist-shadow hover:translate-y-1.5 hover:shadow-none transition-all uppercase tracking-tighter">
                   开始创作/Start Creating
